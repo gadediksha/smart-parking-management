@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Smart Parking System</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="split-body">
+
+<div class="split-wrapper">
+    <div class="split-image-panel">
+        <div id="splitBg" class="split-bg-image"></div>
+        <div class="split-image-overlay">
+            <h2>Smart Parking System</h2>
+            <p>Automated Slot Allocation • Min-Heap Optimization • AI Assistant</p>
+        </div>
+    </div>
+
+    <div class="split-form-panel">
+        <div class="form-wrapper">
+            <h2>Operator Login</h2>
+            <p class="sub-heading">Please enter your administrative credentials.</p>
+
+            <div id="loginAlert" class="alert-box"></div>
+
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="username" placeholder="admin" required autocomplete="username">
+                </div>
+
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password">
+                </div>
+
+                <button type="submit" class="btn-primary">Sign In</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    const images = [
+        "https://images.unsplash.com/photo-1506521781263-d8422e82f27a?auto=format&fit=crop&w=1600&q=80",
+        "https://images.unsplash.com/photo-1470224114660-3f6686c562eb?auto=format&fit=crop&w=1600&q=80",
+        "https://images.unsplash.com/photo-1590674899484-d5640e854abe?auto=format&fit=crop&w=1600&q=80"
+    ];
+    let idx = 0;
+    const bgElement = document.getElementById("splitBg");
+    bgElement.style.backgroundImage = `url('${images[0]}')`;
+
+    setInterval(() => {
+        idx = (idx + 1) % images.length;
+        bgElement.style.opacity = "0.2";
+        setTimeout(() => {
+            bgElement.style.backgroundImage = `url('${images[idx]}')`;
+            bgElement.style.opacity = "1";
+        }, 400);
+    }, 5000);
+
+    async function handleLogin(e) {
+        e.preventDefault();
+        const username = document.getElementById("username").value.trim();
+        const password = document.getElementById("password").value.trim();
+        const alertBox = document.getElementById("loginAlert");
+
+        try {
+            const res = await fetch("http://127.0.0.1:5000/api/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, password })
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                localStorage.setItem("parking_user", data.user);
+                window.location.href = "index.html";
+            } else {
+                alertBox.innerText = data.message || "Invalid credentials!";
+                alertBox.style.display = "block";
+                alertBox.style.background = "#fee2e2";
+                alertBox.style.color = "#dc2626";
+            }
+        } catch (err) {
+            alertBox.innerText = "Cannot connect to the backend server!";
+            alertBox.style.display = "block";
+            alertBox.style.background = "#fee2e2";
+            alertBox.style.color = "#dc2626";
+        }
+    }
+</script>
+</body>
+</html>
+<form id="loginForm" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="username" placeholder="admin" required autocomplete="username">
+                </div>
+
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password">
+                </div>
+
+                <button type="submit" class="btn-primary">Sign In</button>
+            </form>
+
+            <!-- Register Page Link -->
+            <p style="margin-top: 20px; font-size: 13px; text-align: center; color: #64748b;">
+                Don't have an account? 
+                <a href="register.html" style="color: #2563eb; text-decoration: none; font-weight: 600;">Register here</a>
+            </p>

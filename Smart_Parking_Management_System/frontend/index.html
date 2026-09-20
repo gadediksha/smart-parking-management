@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Parking Management Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="dashboard-body">
+
+    <!-- Top Navigation Bar -->
+    <header class="top-nav">
+        <div class="nav-brand">
+            <div class="brand-icon">🅿️</div>
+            <div class="brand-text">
+                <h1>YuktiTech <span>OS</span></h1>
+                <div class="brand-status">
+                    <span class="pulse-indicator"></span>
+                    <span class="status-label">System Active</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="nav-search-wrapper">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="slotSearchInput" placeholder="     Search slot ID or plate number (e.g. DL-01, C-1)..." oninput="handleSearch()">
+            <button id="clearSearchBtn" class="clear-search-btn" onclick="clearSearch()" title="Clear Search">✕</button>
+        </div>
+
+        <div class="nav-center-clock">
+            <div class="clock-time" id="clockTime">--:--:--</div>
+            <div class="clock-date" id="clockDate">-- --- ----</div>
+        </div>
+
+        <div class="nav-actions">
+            <button id="audioToggleBtn" class="nav-pill-btn" onclick="toggleAudio()" title="Sound Effects">
+                <span id="audioIcon">🔊</span>
+            </button>
+            <button id="fullscreenBtn" class="nav-pill-btn" onclick="toggleFullScreen()" title="Toggle Fullscreen">
+                <span>⛶</span>
+            </button>
+            <button id="themeToggleBtn" onclick="toggleTheme()" class="nav-pill-btn theme-btn">
+                <span id="themeIcon">🌙</span> <span id="themeText">Dark</span>
+            </button>
+
+            <div class="user-chip">
+                <div class="user-avatar">👤</div>
+                <div class="user-info">
+                    <span class="user-role">Operator</span>
+                    <b id="displayUser" class="user-name">Admin</b>
+                </div>
+            </div>
+
+            <button onclick="logout()" class="btn-logout-nav" title="Logout">
+                <span>Logout</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Full Screen Content Container -->
+    <main class="main-viewport">
+        
+        <!-- Hero Banner with Slider & Capacity Overview -->
+        <section class="hero-strip">
+            <div class="hero-bg-container">
+                <img id="sliderImage" 
+                     src="https://images.unsplash.com/photo-1506521781263-d8422e82f27a?auto=format&fit=crop&w=1920&q=80" 
+                     alt="Smart Parking Facility" 
+                     class="hero-slider-img">
+                <div class="hero-gradient-overlay"></div>
+            </div>
+
+            <div class="hero-content">
+                <div class="hero-text-block">
+                    <h2>Automated Parking & Intelligent Space Allocation</h2>
+                    <p class="hero-badges">
+                        <span class="badge-tech">⚡ Min-Heap Optimization</span>
+                        <span class="badge-tech">🔄 FIFO Queue Waitlist</span>
+                        <span class="badge-tech">⏱️ Live Dynamic Billing</span>
+                        <span class="badge-tech">🤖 AI Parking Assistant</span>
+                    </p>
+                </div>
+
+                <!-- Capacity Meter Card -->
+                <div class="capacity-card">
+                    <div class="capacity-header">
+                        <span>Facility Capacity</span>
+                        <strong id="occupancyRateText">0% Full</strong>
+                    </div>
+                    <div class="capacity-progress-track">
+                        <div class="capacity-progress-bar" id="occupancyProgressBar" style="width: 0%;"></div>
+                    </div>
+                    <div class="capacity-details">
+                        <span id="capacityBreakdown">0 / 0 Slots in Use</span>
+                        <span id="capacityStatusBadge" class="badge-success">Optimal</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- KPI Metrics Grid -->
+        <section class="stats-row">
+            <div class="stat-card" data-stat="total">
+                <div class="stat-icon-wrap total">🅿️</div>
+                <div class="stat-meta">
+                    <span class="stat-title">Total Capacity</span>
+                    <strong class="stat-val" id="stat-total">0</strong>
+                </div>
+            </div>
+
+            <div class="stat-card" data-stat="available">
+                <div class="stat-icon-wrap available">🟢</div>
+                <div class="stat-meta">
+                    <span class="stat-title">Available Spots</span>
+                    <strong class="stat-val color-green" id="stat-free">0</strong>
+                </div>
+            </div>
+
+            <div class="stat-card" data-stat="occupied">
+                <div class="stat-icon-wrap occupied">🔴</div>
+                <div class="stat-meta">
+                    <span class="stat-title">Occupied Spots</span>
+                    <strong class="stat-val color-red" id="stat-occupied">0</strong>
+                </div>
+            </div>
+
+            <div class="stat-card" data-stat="waiting">
+                <div class="stat-icon-wrap waiting">⏳</div>
+                <div class="stat-meta">
+                    <span class="stat-title">Waitlist Queue</span>
+                    <strong class="stat-val color-orange" id="stat-wait">0</strong>
+                </div>
+            </div>
+
+            <div class="stat-card" data-stat="revenue">
+                <div class="stat-icon-wrap revenue">💰</div>
+                <div class="stat-meta">
+                    <span class="stat-title">Collected Revenue</span>
+                    <strong class="stat-val color-blue" id="stat-revenue">₹0.00</strong>
+                </div>
+            </div>
+        </section>
+
+        <!-- Check-In & Check-Out Command Section -->
+        <section class="panels-grid">
+            <!-- Vehicle Check-In Panel -->
+            <div class="panel-box checkin-panel">
+                <div class="panel-header">
+                    <div class="panel-title-group">
+                        <span class="panel-icon">🚗</span>
+                        <h3>Vehicle Check-In</h3>
+                    </div>
+                    <button type="button" class="btn-subtle" onclick="generateRandomPlate()" title="Generate Random Plate">
+                        🎲 Sample Plate
+                    </button>
+                </div>
+                
+                <div class="form-row-checkin">
+                    <div class="input-with-label flex-2">
+                        <label for="entryNumber">License Plate Number</label>
+                        <div class="input-prefix-box">
+                            <span class="plate-flag">🇮🇳</span>
+                            <input type="text" id="entryNumber" placeholder="DL-01-AB-1234" autocomplete="off" onkeypress="if(event.key==='Enter') sendParkRequest()">
+                        </div>
+                    </div>
+
+                    <div class="input-with-label flex-1">
+                        <label for="vehicleTypeSelect">Vehicle Category</label>
+                        <select id="vehicleTypeSelect">
+                            <option value="Car">🚗 Car (₹30/hr)</option>
+                            <option value="Bike">🏍️ Bike (₹15/hr)</option>
+                        </select>
+                    </div>
+
+                    <div class="action-btn-wrap">
+                        <label class="invisible-label">Action</label>
+                        <button class="btn-action-primary" onclick="sendParkRequest()" id="btnPark">
+                            <span>Park Vehicle</span>
+                            <kbd>Alt+P</kbd>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vehicle Check-Out Panel -->
+            <div class="panel-box checkout-panel">
+                <div class="panel-header">
+                    <div class="panel-title-group">
+                        <span class="panel-icon">🧾</span>
+                        <h3>Vehicle Check-Out & Billing</h3>
+                    </div>
+                    <span class="subtle-info">Auto rate calculation</span>
+                </div>
+
+                <div class="form-row-checkout">
+                    <div class="input-with-label flex-2">
+                        <label for="exitNumber">Exit License Plate</label>
+                        <input type="text" id="exitNumber" placeholder="Enter vehicle plate to vacate..." autocomplete="off" onkeypress="if(event.key==='Enter') sendExitRequest()">
+                    </div>
+
+                    <div class="action-btn-wrap">
+                        <label class="invisible-label">Action</label>
+                        <button class="btn-action-checkout" onclick="sendExitRequest()" id="btnExit">
+                            <span>Vacate & Bill</span>
+                            <kbd>Alt+E</kbd>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Live Parking Grid Section -->
+        <section class="grid-section">
+            <div class="section-top-bar">
+                <div class="section-title-wrap">
+                    <h3>Live Parking Slots</h3>
+                    <span class="section-badge" id="slotsCountBadge">Loading...</span>
+                </div>
+
+                <!-- Filter Chips -->
+                <div class="filter-chips-group">
+                    <button class="chip active" data-filter="all" onclick="setFilter('all', this)">All Slots</button>
+                    <button class="chip" data-filter="available" onclick="setFilter('available', this)">🟢 Available</button>
+                    <button class="chip" data-filter="occupied" onclick="setFilter('occupied', this)">🔴 Occupied</button>
+                    <button class="chip" data-filter="car" onclick="setFilter('car', this)">🚗 Cars Only</button>
+                    <button class="chip" data-filter="bike" onclick="setFilter('bike', this)">🏍️ Bikes Only</button>
+                </div>
+            </div>
+
+            <!-- The Full-Screen Dynamic Grid -->
+            <div class="slots-full-grid" id="slotsContainer">
+                <!-- Injected via JavaScript -->
+            </div>
+        </section>
+
+        <!-- Waitlist & Activity Log Row -->
+        <section class="logs-dual-section">
+            <!-- Waitlist Panel -->
+            <div class="log-card waitlist-card">
+                <div class="log-card-header">
+                    <div class="log-title">
+                        <span>⏳</span>
+                        <h4>Waitlist (FIFO Queue)</h4>
+                    </div>
+                    <span class="queue-count-pill" id="queueBadge">0 in line</span>
+                </div>
+                <div class="waitlist-scroll-area">
+                    <ol id="waitingListContainer" class="waitlist-list">
+                        <li class="empty-state">No vehicles in waitlist.</li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- Recent Activity / Transactions Log -->
+            <div class="log-card activity-card">
+                <div class="log-card-header">
+                    <div class="log-title">
+                        <span>📋</span>
+                        <h4>Recent Activity Log</h4>
+                    </div>
+                    <div class="log-actions">
+                        <button class="btn-small-outline" onclick="exportActivityCSV()" title="Export CSV">
+                            📥 Export CSV
+                        </button>
+                        <button class="btn-small-outline" onclick="clearActivityLog()" title="Clear Log">
+                            🗑️ Clear
+                        </button>
+                    </div>
+                </div>
+                <div class="activity-table-scroll">
+                    <table class="activity-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Action</th>
+                                <th>Vehicle Plate</th>
+                                <th>Category</th>
+                                <th>Slot</th>
+                                <th>Billed</th>
+                            </tr>
+                        </thead>
+                        <tbody id="activityTableBody">
+                            <tr>
+                                <td colspan="6" class="empty-state">No recent activity logged yet.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Receipt / Invoice Modal -->
+    <div id="receiptModal" class="modal-backdrop">
+        <div class="modal-card">
+            <div class="receipt-header">
+                <div class="receipt-logo">🅿️</div>
+                <h3>Parking Receipt & Invoice</h3>
+                <span class="receipt-sub">Smart Parking Automated Billing</span>
+            </div>
+            
+            <div class="receipt-divider"></div>
+
+            <div class="receipt-details">
+                <div class="receipt-row"><span>Vehicle Plate:</span><strong id="r-plate">--</strong></div>
+                <div class="receipt-row"><span>Assigned Slot:</span><b id="r-slot">--</b></div>
+                <div class="receipt-row"><span>Vehicle Type:</span><span id="r-type">--</span></div>
+                <div class="receipt-row"><span>Check-In Time:</span><span id="r-in">--</span></div>
+                <div class="receipt-row"><span>Check-Out Time:</span><span id="r-out">--</span></div>
+                <div class="receipt-row"><span>Billed Duration:</span><span id="r-dur">--</span></div>
+                <div class="receipt-row total-highlight">
+                    <span>Total Amount Due:</span>
+                    <strong id="r-total">₹0.00</strong>
+                </div>
+            </div>
+
+            <div class="receipt-footer-msg">Thank you for parking with us! Have a safe drive.</div>
+
+            <div class="modal-buttons">
+                <button onclick="window.print()" class="btn-print">🖨️ Print Ticket</button>
+                <button onclick="closeReceipt()" class="btn-close">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Slot Check-in Modal -->
+    <div id="quickParkModal" class="modal-backdrop">
+        <div class="modal-card quick-park-card">
+            <div class="receipt-header">
+                <div class="receipt-logo">🅿️</div>
+                <h3>Direct Slot Parking</h3>
+                <span class="receipt-sub" id="quickParkSlotSubtitle">Slot Selected</span>
+            </div>
+            <div class="receipt-divider"></div>
+            <div class="quick-park-form">
+                <label for="quickParkPlate">License Plate Number</label>
+                <div class="input-prefix-box">
+                    <span class="plate-flag">🇮🇳</span>
+                    <input type="text" id="quickParkPlate" placeholder="e.g. DL-01-AB-1234">
+                </div>
+                <input type="hidden" id="quickParkType">
+            </div>
+            <div class="modal-buttons" style="margin-top: 20px;">
+                <button onclick="confirmQuickPark()" class="btn-action-primary">Confirm & Park</button>
+                <button onclick="closeQuickPark()" class="btn-close">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- AI Assistant Floating Widget -->
+    <div class="ai-chat-btn" onclick="toggleAIChat()" id="aiFloatingBtn" title="AI Assistant">
+        <span class="ai-btn-icon">🤖</span>
+        <span class="ai-btn-text">Ask AI Assistant</span>
+        <span class="ai-pulse-ring"></span>
+    </div>
+
+    <div class="ai-chat-window" id="aiChatWindow">
+        <div class="ai-chat-header">
+            <div class="ai-header-info">
+                <span class="ai-avatar">🤖</span>
+                <div>
+                    <strong>Parking AI Assistant</strong>
+                    <span class="ai-subtext">Online • Natural Language</span>
+                </div>
+            </div>
+            <button class="ai-close-btn" onclick="toggleAIChat()">✕</button>
+        </div>
+
+        <div class="ai-chips-bar">
+            <button class="ai-prompt-chip" onclick="quickAIPrompt('How many free spots?')">Free spots?</button>
+            <button class="ai-prompt-chip" onclick="quickAIPrompt('Show total revenue')">Revenue?</button>
+            <button class="ai-prompt-chip" onclick="quickAIPrompt('Park car DL-01-AB-9999')">Park test car</button>
+        </div>
+
+        <div class="ai-messages" id="aiMessages">
+            <div class="msg bot">
+                Hello! I'm your Smart Parking Copilot. You can ask me to park vehicles, vacate slots, check free spaces, or review revenue in plain English.
+            </div>
+        </div>
+
+        <div class="ai-input-area">
+            <input type="text" id="aiUserInput" placeholder="e.g. Park car DL-02-CD-5678..." onkeypress="if(event.key === 'Enter') sendAIMessage()">
+            <button onclick="sendAIMessage()">Send</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

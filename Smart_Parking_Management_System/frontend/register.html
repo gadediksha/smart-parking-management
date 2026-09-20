@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Smart Parking System</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="split-body">
+
+<div class="split-wrapper">
+    <!-- Left Section: Image Panel -->
+    <div class="split-image-panel">
+        <div id="splitBg" class="split-bg-image"></div>
+        <div class="split-image-overlay">
+            <h2>Join the System</h2>
+            <p>Register as a new operator to manage vehicle slots and real-time operations.</p>
+        </div>
+    </div>
+
+    <!-- Right Section: Registration Form -->
+    <div class="split-form-panel">
+        <div class="form-wrapper">
+            <h2>Create Account</h2>
+            <p class="sub-heading">Register new operator credentials.</p>
+
+            <div id="registerAlert" class="alert-box"></div>
+
+            <form id="registerForm" onsubmit="handleRegister(event)">
+                <div class="form-group">
+                    <label>New Username</label>
+                    <input type="text" id="regUsername" placeholder="e.g. operator1" required autocomplete="username">
+                </div>
+
+                <div class="form-group">
+                    <label>New Password</label>
+                    <input type="password" id="regPassword" placeholder="••••••••" required autocomplete="new-password">
+                </div>
+
+                <button type="submit" class="btn-primary">Register</button>
+            </form>
+
+            <p style="margin-top: 20px; font-size: 13px; text-align: center; color: #64748b;">
+                Already registered? 
+                <a href="login.html" style="color: #2563eb; text-decoration: none; font-weight: 600;">Login here</a>
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Background Image
+    const bgElement = document.getElementById("splitBg");
+    bgElement.style.backgroundImage = "url('https://images.unsplash.com/photo-1506521781263-d8422e82f27a?auto=format&fit=crop&w=1600&q=80')";
+
+    async function handleRegister(e) {
+        e.preventDefault();
+        const username = document.getElementById("regUsername").value.trim();
+        const password = document.getElementById("regPassword").value.trim();
+        const alertBox = document.getElementById("registerAlert");
+
+        try {
+            const res = await fetch("http://127.0.0.1:5000/api/register", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, password })
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                alertBox.innerText = data.message;
+                alertBox.style.display = "block";
+                alertBox.style.background = "#dcfce7";
+                alertBox.style.color = "#15803d";
+                setTimeout(() => {
+                    window.location.href = "login.html";
+                }, 1500);
+            } else {
+                alertBox.innerText = data.message || "Registration failed!";
+                alertBox.style.display = "block";
+                alertBox.style.background = "#fee2e2";
+                alertBox.style.color = "#dc2626";
+            }
+        } catch (err) {
+            alertBox.innerText = "Cannot connect to server!";
+            alertBox.style.display = "block";
+            alertBox.style.background = "#fee2e2";
+            alertBox.style.color = "#dc2626";
+        }
+    }
+</script>
+</body>
+</html>
