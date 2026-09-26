@@ -282,7 +282,7 @@ function generateRandomPlate() {
 
 async function refreshStatus() {
     try {
-        const response = await fetch(`${API_URL}/status`);
+        const response = await fetch(`${API_URL}/api/status`);
         if (!response.ok) throw new Error("Backend server unreachable");
         const data = await response.json();
 
@@ -536,7 +536,7 @@ async function sendParkRequest() {
     }
 
     try {
-        const res = await fetch(`${API_URL}/park`, {
+        const res = await fetch(`${API_URL}/api/park`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ vehicle_no: plate, vehicle_type: type })
@@ -572,7 +572,7 @@ async function sendExitRequest() {
 
 async function executeCheckout(plate) {
     try {
-        const res = await fetch(`${API_URL}/vacate`, {
+        const res = await fetch(`${API_URL}/api/vacate`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ vehicle_no: plate })
@@ -628,7 +628,7 @@ async function confirmQuickPark() {
     }
 
     closeQuickPark();
-    const res = await fetch(`${API_URL}/park`, {
+    const res = await fetch(`${API_URL}/api/park`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ vehicle_no: plate, vehicle_type: type })
@@ -839,7 +839,7 @@ async function sendAIMessage() {
     chatBox.scrollTop = chatBox.scrollHeight;
 
     try {
-        const res = await fetch(`${API_URL}/ai-chat`, {
+        const res = await fetch(`${API_URL}/api/ai-chat`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ message: msg })
