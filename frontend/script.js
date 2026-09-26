@@ -3,7 +3,7 @@
  * Algorithms: Min-Heap Nearest Slot Allocation, FIFO Waitlist Queue
  */
 
-const API_URL = "https://smart-parking-backend.onrender.com";
+const API_URL = "https://smart-parking-management-5.onrender.com";
 
 async function testBackend() {
     try {
