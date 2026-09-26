@@ -2,8 +2,12 @@ import heapq
 import time
 from collections import deque
 import re
+import os
+from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
@@ -176,7 +180,10 @@ class ParkingLotDSA:
         }
 
 parking = ParkingLotDSA(car_count=4, bike_count=4)
-ADMIN_USERS = {"admin": "admin123", "operator": "park2026"}
+ADMIN_USERS = {
+    os.getenv("ADMIN_USERNAME", "admin"): os.getenv("ADMIN_PASSWORD", "admin123"),
+    os.getenv("OPERATOR_USERNAME", "operator"): os.getenv("OPERATOR_PASSWORD", "park2026")
+}
 
 class ParkingAIAssistant:
     def __init__(self, parking_lot):
