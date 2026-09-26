@@ -3,8 +3,19 @@
  * Algorithms: Min-Heap Nearest Slot Allocation, FIFO Waitlist Queue
  */
 
-const API_URL = "http://127.0.0.1:5000/api";
+const API_URL = "https://smart-parking-backend.onrender.com";
 
+async function testBackend() {
+    try {
+        const response = await fetch(`${API_URL}/api/test`);
+
+        const data = await response.json();
+
+        console.log(data);
+    } catch (error) {
+        console.error("Backend error:", error);
+    }
+}
 // Banner Images for dynamic slider
 const bannerImages = [
     "https://images.unsplash.com/photo-1506521781263-d8422e82f27a?auto=format&fit=crop&w=1920&q=80",
@@ -252,8 +263,8 @@ const alphaChars = "ABCDEFGHJKLMNPQRSTUVWXYZ";
 function generateRandomPlate() {
     const state = stateCodes[Math.floor(Math.random() * stateCodes.length)];
     const district = String(Math.floor(Math.random() * 14) + 1).padStart(2, "0");
-    const letters = alphaChars[Math.floor(Math.random() * alphaChars.length)] + 
-                    alphaChars[Math.floor(Math.random() * alphaChars.length)];
+    const letters = alphaChars[Math.floor(Math.random() * alphaChars.length)] +
+        alphaChars[Math.floor(Math.random() * alphaChars.length)];
     const number = String(Math.floor(Math.random() * 9000) + 1000);
 
     const plate = `${state}-${district}-${letters}-${number}`;
@@ -386,8 +397,8 @@ function renderSlotsGrid() {
         if (currentFilter === "bike" && slot.type !== "Bike") return;
 
         // Apply Search Query
-        const matchesSearch = !searchQuery || 
-            slot.slot_id.toUpperCase().includes(searchQuery) || 
+        const matchesSearch = !searchQuery ||
+            slot.slot_id.toUpperCase().includes(searchQuery) ||
             (slot.vehicle_no && slot.vehicle_no.toUpperCase().includes(searchQuery));
 
         if (searchQuery && !matchesSearch) return;
@@ -402,8 +413,8 @@ function renderSlotsGrid() {
             card.setAttribute("data-entry-time", slot.entry_time);
         }
 
-        const icon = slot.is_occupied 
-            ? (slot.type === "Car" ? "🚗" : "🏍️") 
+        const icon = slot.is_occupied
+            ? (slot.type === "Car" ? "🚗" : "🏍️")
             : "🅿️";
 
         const ratePerHour = slot.type === "Car" ? 30 : 15;
@@ -423,10 +434,10 @@ function renderSlotsGrid() {
 
             <div class="slot-center">
                 <div class="slot-center-icon">${icon}</div>
-                ${slot.is_occupied 
-                    ? `<span class="slot-plate-text">${slot.vehicle_no}</span>` 
-                    : `<span class="slot-empty-text">Click to Park</span>`
-                }
+                ${slot.is_occupied
+                ? `<span class="slot-plate-text">${slot.vehicle_no}</span>`
+                : `<span class="slot-empty-text">Click to Park</span>`
+            }
             </div>
 
             <div class="slot-footer">
@@ -472,7 +483,7 @@ function updateLiveSlotTimers() {
             const hrs = String(Math.floor(diffSec / 3600)).padStart(2, "0");
             const mins = String(Math.floor((diffSec % 3600) / 60)).padStart(2, "0");
             const secs = String(diffSec % 60).padStart(2, "0");
-            
+
             // Calculate live estimated bill matching backend logic
             let estBill = baseRate;
             const diffMins = Math.floor(diffSec / 60);
