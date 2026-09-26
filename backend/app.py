@@ -201,7 +201,7 @@ class ParkingAIAssistant:
                 "action": "refresh"
             }
 
-        if text in ["hi", "hello", "hey", "help"]:
+        if text in ["hi", "hello", "hey", "help", "hii", "namaste"]:
             return {
                 "reply": "Hello! I am your Parking AI Assistant. You can tell me:\n- 'Park car DL-01-AB-1234'\n- 'Checkout DL-01-AB-1234'\n- 'How many free spots?'\n- 'Show total revenue'",
                 "action": "none"
