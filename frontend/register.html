@@ -13,8 +13,8 @@
     <div class="split-image-panel">
         <div id="splitBg" class="split-bg-image"></div>
         <div class="split-image-overlay">
-            <h2>Join the System</h2>
-            <p>Register as a new operator to manage vehicle slots and real-time operations.</p>
+            <h2>Join YuktiTech Parking</h2>
+            <p>Create an account to access smart slot allocation, billing, and real-time dashboard operations.</p>
         </div>
     </div>
 
@@ -22,33 +22,46 @@
     <div class="split-form-panel">
         <div class="form-wrapper">
             <h2>Create Account</h2>
-            <p class="sub-heading">Register new operator credentials.</p>
+            <p class="sub-heading">Register a new user or operator account.</p>
 
             <div id="registerAlert" class="alert-box"></div>
 
             <form id="registerForm" onsubmit="handleRegister(event)">
                 <div class="form-group">
-                    <label>New Username</label>
-                    <input type="text" id="regUsername" placeholder="e.g. operator1" required autocomplete="username">
+                    <label>Username</label>
+                    <input type="text" id="regUsername" placeholder="Enter username (e.g. rahul123)" required autocomplete="username">
                 </div>
 
                 <div class="form-group">
-                    <label>New Password</label>
+                    <label>Password</label>
                     <input type="password" id="regPassword" placeholder="••••••••" required autocomplete="new-password">
                 </div>
 
-                <button type="submit" class="btn-primary">Register</button>
+                <div class="form-group">
+                    <label>Account Role</label>
+                    <select id="regRole">
+                        <option value="User">User / Driver (Customer)</option>
+                        <option value="Operator">Parking Operator</option>
+                        <option value="Admin">Administrator</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn-primary" style="margin-top: 10px;">Create Account</button>
             </form>
 
             <p style="margin-top: 20px; font-size: 13px; text-align: center; color: #64748b;">
-                Already registered? 
-                <a href="login.html" style="color: #2563eb; text-decoration: none; font-weight: 600;">Login here</a>
+                Already have an account? 
+                <a href="login.html" style="color: #2563eb; text-decoration: none; font-weight: 600;">Sign In here</a>
             </p>
         </div>
     </div>
 </div>
 
 <script>
+    const API_URL = (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.protocol === "file:")
+        ? "http://127.0.0.1:5000"
+        : "https://smart-parking-management-5.onrender.com";
+
     // Background Image
     const bgElement = document.getElementById("splitBg");
     bgElement.style.backgroundImage = "url('https://images.unsplash.com/photo-1506521781263-d8422e82f27a?auto=format&fit=crop&w=1600&q=80')";
@@ -57,13 +70,22 @@
         e.preventDefault();
         const username = document.getElementById("regUsername").value.trim();
         const password = document.getElementById("regPassword").value.trim();
+        const role = document.getElementById("regRole").value;
         const alertBox = document.getElementById("registerAlert");
 
+        if (!username || !password) {
+            alertBox.innerText = "Please fill in all fields.";
+            alertBox.style.display = "block";
+            alertBox.style.background = "#fee2e2";
+            alertBox.style.color = "#dc2626";
+            return;
+        }
+
         try {
-            const res = await fetch("https://smart-parking-management-5.onrender.com/api/register", {
+            const res = await fetch(`${API_URL}/api/register`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ username, password })
+                body: JSON.stringify({ username, password, role })
             });
 
             const data = await res.json();

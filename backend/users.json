@@ -1,0 +1,42 @@
+{
+  "gade123": {
+    "password": "1426",
+    "role": "Admin",
+    "created_at": "2026-11-12 22:42:30"
+  },
+  "sgade5": {
+    "password": "1234",
+    "role": "User",
+    "created_at": "2026-11-12 22:43:36"
+  },
+  "u678": {
+    "password": "3214",
+    "role": "Staff",
+    "created_at": "2026-11-12 22:45:58"
+  },
+  "uj789": {
+    "password": "9874",
+    "role": "Staff",
+    "created_at": "2026-11-13 22:52:17"
+  },
+  "u698": {
+    "password": "4321",
+    "role": "Staff",
+    "created_at": "2026-11-14 00:03:54"
+  },
+  "Sneha": {
+    "password": "Sneha@321",
+    "role": "User",
+    "created_at": "2026-11-14 18:47:00"
+  },
+  "Sneha Gade": {
+    "password": "Sneha@321",
+    "role": "Admin",
+    "created_at": "2026-11-14 19:46:34"
+  },
+  "Sneha234": {
+    "password": "Sneha@4321",
+    "role": "Staff",
+    "created_at": "2026-11-14 19:50:49"
+  }
+}

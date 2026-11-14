@@ -2,395 +2,379 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Parking Management Dashboard</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <title>Admin Control Center - YuktiTech</title>
+    <link rel="stylesheet" href="style.css?v=3">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
-<body class="dashboard-body">
-
-    <!-- Top Navigation Bar -->
+<body>
     <header class="top-nav">
-        <div class="nav-brand">
-            <div class="brand-icon">🅿️</div>
-            <div class="brand-text">
-                <h1>YuktiTech <span>OS</span></h1>
-                <div class="brand-status">
-                    <span class="pulse-indicator"></span>
-                    <span class="status-label">System Active</span>
-                </div>
+        <div class="brand-badge">
+            <div class="brand-icon">📊</div>
+            <div>
+                <div class="brand-title">YuktiTech <span>Admin</span></div>
+                <small style="color:#10b981; font-weight:700;">● SYSTEM CLOCK: <span id="adminClock"></span></small>
             </div>
         </div>
-
-        <div class="nav-search-wrapper">
-            <span class="search-icon">🔍</span>
-            <input type="text" id="slotSearchInput" placeholder="     Search slot ID or plate number (e.g. DL-01, C-1)..." oninput="handleSearch()">
-            <button id="clearSearchBtn" class="clear-search-btn" onclick="clearSearch()" title="Clear Search">✕</button>
-        </div>
-
-        <div class="nav-center-clock">
-            <div class="clock-time" id="clockTime">--:--:--</div>
-            <div class="clock-date" id="clockDate">-- --- ----</div>
-        </div>
-
         <div class="nav-actions">
-            <button id="audioToggleBtn" class="nav-pill-btn" onclick="toggleAudio()" title="Sound Effects">
-                <span id="audioIcon">🔊</span>
-            </button>
-            <button id="fullscreenBtn" class="nav-pill-btn" onclick="toggleFullScreen()" title="Toggle Fullscreen">
-                <span>⛶</span>
-            </button>
-            <button id="themeToggleBtn" onclick="toggleTheme()" class="nav-pill-btn theme-btn">
-                <span id="themeIcon">🌙</span> <span id="themeText">Dark</span>
-            </button>
-
-            <div class="user-chip">
-                <div class="user-avatar">👤</div>
-                <div class="user-info">
-                    <span class="user-role">Operator</span>
-                    <b id="displayUser" class="user-name">Admin</b>
-                </div>
-            </div>
-
-            <button onclick="logout()" class="btn-logout-nav" title="Logout">
-                <span>Logout</span>
-            </button>
+            <button class="theme-btn" onclick="toggleSidebar()"><i class="fa-solid fa-table-columns"></i> Sidebar</button>
+            <button class="theme-btn" onclick="toggleTheme()">🌓 Theme</button>
+            <div class="user-chip" id="aName"></div>
+            <button class="btn btn-red" onclick="localStorage.clear(); sessionStorage.clear(); window.location.replace('login.html?v=' + Date.now());">Logout</button>
         </div>
     </header>
 
-    <!-- Main Full Screen Content Container -->
-    <main class="main-viewport">
-        
-        <!-- Hero Banner with Slider & Capacity Overview -->
-        <section class="hero-strip">
-            <div class="hero-bg-container">
-                <img id="sliderImage" 
-                     src="https://images.unsplash.com/photo-1506521781263-d8422e82f27a?auto=format&fit=crop&w=1920&q=80" 
-                     alt="Smart Parking Facility" 
-                     class="hero-slider-img">
-                <div class="hero-gradient-overlay"></div>
-            </div>
+    <main class="page-wrap">
+        <div class="dashboard-layout">
+            <!-- LEFT SIDEBAR: PAGE NAVIGATION -->
+            <aside class="sidebar-panel">
+                <div class="card" style="padding:16px; margin-bottom:0;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <h3 style="margin:0; font-size:1.05rem;"><i class="fa-solid fa-compass" style="color:var(--accent);"></i> Admin Menu</h3>
+                        <span class="gate-pill" style="font-size:0.75rem; padding:4px 8px;">YuktiTech</span>
+                    </div>
 
-            <div class="hero-content">
-                <div class="hero-text-block">
-                    <h2>Automated Parking & Intelligent Space Allocation</h2>
-                    <p class="hero-badges">
-                        <span class="badge-tech">⚡ Min-Heap Optimization</span>
-                        <span class="badge-tech">🔄 FIFO Queue Waitlist</span>
-                        <span class="badge-tech">⏱️ Live Dynamic Billing</span>
-                        <span class="badge-tech">🤖 AI Parking Assistant</span>
+                    <div class="sidebar-nav">
+                        <button class="sidebar-tab-btn active" id="nav-blueprint" onclick="switchAdminPage('blueprint')">
+                            <i class="fa-solid fa-layer-group" style="color:var(--accent); font-size:1.1rem; width:22px;"></i>
+                            <div>
+                                <div>Blueprint Map</div>
+                                <small style="color:var(--text-sub); font-size:0.75rem;">Floor & Live Bays</small>
+                            </div>
+                        </button>
+
+                        <button class="sidebar-tab-btn" id="nav-gps" onclick="switchAdminPage('gps')">
+                            <i class="fa-solid fa-map-location-dot" style="color:var(--green); font-size:1.1rem; width:22px;"></i>
+                            <div>
+                                <div>Bareilly GPS Map</div>
+                                <small style="color:var(--text-sub); font-size:0.75rem;">Civil Lines UP-25</small>
+                            </div>
+                        </button>
+
+                        <button class="sidebar-tab-btn" id="nav-ai" onclick="switchAdminPage('ai')">
+                            <i class="fa-solid fa-robot" style="color:var(--amber); font-size:1.1rem; width:22px;"></i>
+                            <div>
+                                <div>AI Assistant</div>
+                                <small style="color:var(--text-sub); font-size:0.75rem;">Ask AI & Analytics</small>
+                            </div>
+                        </button>
+
+                        <button class="sidebar-tab-btn" id="nav-users" onclick="switchAdminPage('users')">
+                            <i class="fa-solid fa-users" style="color:#a855f7; font-size:1.1rem; width:22px;"></i>
+                            <div>
+                                <div>User Accounts</div>
+                                <small style="color:var(--text-sub); font-size:0.75rem;">Roles & Logins</small>
+                            </div>
+                        </button>
+
+                        <button class="sidebar-tab-btn" id="nav-audit" onclick="switchAdminPage('audit')">
+                            <i class="fa-solid fa-receipt" style="color:var(--red); font-size:1.1rem; width:22px;"></i>
+                            <div>
+                                <div>Audit Trail</div>
+                                <small style="color:var(--text-sub); font-size:0.75rem;">Live Activity Log</small>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Facility Overview Pill Box in Sidebar -->
+                <div class="card" style="padding:14px; margin-bottom:0; font-size:0.85rem;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span style="font-weight:700;"><i class="fa-solid fa-circle-dot" style="color:var(--green);"></i> Facility Status</span>
+                        <span class="gate-pill" style="font-size:0.7rem; padding:2px 8px;">UP-25 Hub</span>
+                    </div>
+                    <p style="color:var(--text-sub); font-size:0.78rem; line-height:1.4; margin:0;">
+                        Bareilly Smart Plaza (Civil Lines). 2 Levels & 16 Sensor-monitored smart bays.
                     </p>
                 </div>
+            </aside>
 
-                <!-- Capacity Meter Card -->
-                <div class="capacity-card">
-                    <div class="capacity-header">
-                        <span>Facility Capacity</span>
-                        <strong id="occupancyRateText">0% Full</strong>
+            <!-- RIGHT MAIN PANEL: MULTI-VIEW SPA PAGES -->
+            <section class="main-content">
+                <!-- VIEW 1: BLUEPRINT FLOOR MAP VIEW (DEFAULT) -->
+                <div id="page-blueprint" class="admin-view active">
+                    <!-- KPI Summary Cards -->
+                    <div class="grid-4" style="margin-bottom:18px;">
+                        <div class="card" style="margin-bottom:0;"><small style="color:var(--text-sub);">TOTAL CAPACITY</small><h2 id="kTotal">0</h2></div>
+                        <div class="card" style="margin-bottom:0;"><small style="color:var(--text-sub);">AVAILABLE SLOTS</small><h2 id="kAvail" style="color:var(--green);">0</h2></div>
+                        <div class="card" style="margin-bottom:0;"><small style="color:var(--text-sub);">RESERVED / OCCUPIED</small><h2 id="kBusy" style="color:var(--amber);">0</h2></div>
+                        <div class="card" style="margin-bottom:0;"><small style="color:var(--text-sub);">TOTAL REVENUE</small><h2 id="kRev" style="color:var(--accent);">₹0.00</h2></div>
                     </div>
-                    <div class="capacity-progress-track">
-                        <div class="capacity-progress-bar" id="occupancyProgressBar" style="width: 0%;"></div>
-                    </div>
-                    <div class="capacity-details">
-                        <span id="capacityBreakdown">0 / 0 Slots in Use</span>
-                        <span id="capacityStatusBadge" class="badge-success">Optimal</span>
-                    </div>
-                </div>
-            </div>
-        </section>
 
-        <!-- KPI Metrics Grid -->
-        <section class="stats-row">
-            <div class="stat-card" data-stat="total">
-                <div class="stat-icon-wrap total">🅿️</div>
-                <div class="stat-meta">
-                    <span class="stat-title">Total Capacity</span>
-                    <strong class="stat-val" id="stat-total">0</strong>
-                </div>
-            </div>
+                    <!-- Live Facility Floor Blueprint Map for Admin -->
+                    <div class="card" style="margin-bottom:0;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+                            <div>
+                                <h2>🗺️ Live Multi-Level Facility Blueprint Map</h2>
+                                <p style="font-size:0.85rem; color:var(--text-sub);">Real-time visual monitoring of all levels, vehicle occupancies & slot allocations • Bareilly Facility (UP-25)</p>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <label style="margin:0; font-weight:700;">Floor Level:</label>
+                                <select id="adminLevelFilter" style="width:190px; margin:0;" onchange="renderAdminMap()">
+                                    <option value="L1">Level 1 (Ground Floor)</option>
+                                    <option value="L2">Level 2 (Upper Deck)</option>
+                                </select>
+                            </div>
+                        </div>
 
-            <div class="stat-card" data-stat="available">
-                <div class="stat-icon-wrap available">🟢</div>
-                <div class="stat-meta">
-                    <span class="stat-title">Available Spots</span>
-                    <strong class="stat-val color-green" id="stat-free">0</strong>
-                </div>
-            </div>
+                        <div class="facility-plan">
+                            <div class="gateway-banner">
+                                <div class="gate-pill">⬇️ MAIN ENTRANCE GATE (ENTRY SENSORS)</div>
+                                <div class="exit-pill">⬆️ AUTOMATED EXIT BOOTH & PAYMENT GATE</div>
+                            </div>
 
-            <div class="stat-card" data-stat="occupied">
-                <div class="stat-icon-wrap occupied">🔴</div>
-                <div class="stat-meta">
-                    <span class="stat-title">Occupied Spots</span>
-                    <strong class="stat-val color-red" id="stat-occupied">0</strong>
-                </div>
-            </div>
+                            <p style="color:var(--text-sub); font-size:0.82rem; font-weight:700; margin-bottom:10px;">ZONE A: CAR SLOTS (₹0.50 / min)</p>
+                            <div class="grid-4" id="adminCarSlots"></div>
 
-            <div class="stat-card" data-stat="waiting">
-                <div class="stat-icon-wrap waiting">⏳</div>
-                <div class="stat-meta">
-                    <span class="stat-title">Waitlist Queue</span>
-                    <strong class="stat-val color-orange" id="stat-wait">0</strong>
-                </div>
-            </div>
+                            <div class="driveway">◀ ◀ ◀ DRIVEWAY & VEHICLE PASSAGEWAY ▶ ▶ ▶</div>
 
-            <div class="stat-card" data-stat="revenue">
-                <div class="stat-icon-wrap revenue">💰</div>
-                <div class="stat-meta">
-                    <span class="stat-title">Collected Revenue</span>
-                    <strong class="stat-val color-blue" id="stat-revenue">₹0.00</strong>
-                </div>
-            </div>
-        </section>
-
-        <!-- Check-In & Check-Out Command Section -->
-        <section class="panels-grid">
-            <!-- Vehicle Check-In Panel -->
-            <div class="panel-box checkin-panel">
-                <div class="panel-header">
-                    <div class="panel-title-group">
-                        <span class="panel-icon">🚗</span>
-                        <h3>Vehicle Check-In</h3>
-                    </div>
-                    <button type="button" class="btn-subtle" onclick="generateRandomPlate()" title="Generate Random Plate">
-                        🎲 Sample Plate
-                    </button>
-                </div>
-                
-                <div class="form-row-checkin">
-                    <div class="input-with-label flex-2">
-                        <label for="entryNumber">License Plate Number</label>
-                        <div class="input-prefix-box">
-                            <span class="plate-flag">🇮🇳</span>
-                            <input type="text" id="entryNumber" placeholder="DL-01-AB-1234" autocomplete="off" onkeypress="if(event.key==='Enter') sendParkRequest()">
+                            <p style="color:var(--text-sub); font-size:0.82rem; font-weight:700; margin-bottom:10px;">ZONE B: BIKE SLOTS (₹0.25 / min)</p>
+                            <div class="grid-4" id="adminBikeSlots"></div>
                         </div>
                     </div>
-
-                    <div class="input-with-label flex-1">
-                        <label for="vehicleTypeSelect">Vehicle Category</label>
-                        <select id="vehicleTypeSelect">
-                            <option value="Car">🚗 Car (₹30/hr)</option>
-                            <option value="Bike">🏍️ Bike (₹15/hr)</option>
-                        </select>
-                    </div>
-
-                    <div class="action-btn-wrap">
-                        <label class="invisible-label">Action</label>
-                        <button class="btn-action-primary" onclick="sendParkRequest()" id="btnPark">
-                            <span>Park Vehicle</span>
-                            <kbd>Alt+P</kbd>
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Vehicle Check-Out Panel -->
-            <div class="panel-box checkout-panel">
-                <div class="panel-header">
-                    <div class="panel-title-group">
-                        <span class="panel-icon">🧾</span>
-                        <h3>Vehicle Check-Out & Billing</h3>
-                    </div>
-                    <span class="subtle-info">Auto rate calculation</span>
                 </div>
 
-                <div class="form-row-checkout">
-                    <div class="input-with-label flex-2">
-                        <label for="exitNumber">Exit License Plate</label>
-                        <input type="text" id="exitNumber" placeholder="Enter vehicle plate to vacate..." autocomplete="off" onkeypress="if(event.key==='Enter') sendExitRequest()">
-                    </div>
-
-                    <div class="action-btn-wrap">
-                        <label class="invisible-label">Action</label>
-                        <button class="btn-action-checkout" onclick="sendExitRequest()" id="btnExit">
-                            <span>Vacate & Bill</span>
-                            <kbd>Alt+E</kbd>
-                        </button>
+                <!-- VIEW 2: BAREILLY GPS MAP VIEW -->
+                <div id="page-gps" class="admin-view">
+                    <div class="card" style="padding:22px; margin-bottom:0;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+                            <div>
+                                <h2><i class="fa-solid fa-map-location-dot" style="color:var(--accent);"></i> Bareilly Facility GPS Location & Navigation</h2>
+                                <p style="font-size:0.85rem; color:var(--text-sub);">Civil Lines / Ayub Khan Chauraha, Bareilly, Uttar Pradesh (UP-25) • 28.3670° N, 79.4304° E</p>
+                            </div>
+                            <div style="display:flex; gap:10px; align-items:center;">
+                                <span id="adminAvailBadge" class="gate-pill" style="font-size:0.85rem;">🟢 Live Status Online</span>
+                                <a href="https://maps.google.com/?q=28.3670,79.4304" target="_blank" class="btn btn-amber" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+                                    <i class="fa-solid fa-diamond-turn-right"></i> Open in Google Maps
+                                </a>
+                            </div>
+                        </div>
+                        <div id="adminGpsMap" style="height:460px; width:100%; border-radius:14px; border:1.5px solid var(--card-border); z-index:10;"></div>
                     </div>
                 </div>
-            </div>
-        </section>
 
-        <!-- Live Parking Grid Section -->
-        <section class="grid-section">
-            <div class="section-top-bar">
-                <div class="section-title-wrap">
-                    <h3>Live Parking Slots</h3>
-                    <span class="section-badge" id="slotsCountBadge">Loading...</span>
-                </div>
+                <!-- VIEW 3: AI ASSISTANT VIEW -->
+                <div id="page-ai" class="admin-view">
+                    <div class="card" style="padding:22px; margin-bottom:0;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                            <div>
+                                <h2><i class="fa-solid fa-robot" style="color:var(--accent);"></i> Embedded AI Parking Assistant</h2>
+                                <p style="font-size:0.85rem; color:var(--text-sub);">AI-driven analytics, capacity questions, occupancy predictions & revenue intelligence</p>
+                            </div>
+                            <span class="gate-pill" style="font-size:0.75rem;">AI Bot Online</span>
+                        </div>
 
-                <!-- Filter Chips -->
-                <div class="filter-chips-group">
-                    <button class="chip active" data-filter="all" onclick="setFilter('all', this)">All Slots</button>
-                    <button class="chip" data-filter="available" onclick="setFilter('available', this)">🟢 Available</button>
-                    <button class="chip" data-filter="occupied" onclick="setFilter('occupied', this)">🔴 Occupied</button>
-                    <button class="chip" data-filter="car" onclick="setFilter('car', this)">🚗 Cars Only</button>
-                    <button class="chip" data-filter="bike" onclick="setFilter('bike', this)">🏍️ Bikes Only</button>
-                </div>
-            </div>
+                        <div id="chatHistory" style="height:360px; overflow-y:auto; margin-bottom:16px; padding:16px; border-radius:12px; background:rgba(128,128,128,0.08); font-size:0.95rem; border:1px solid var(--card-border);">
+                            <p style="color:var(--text-sub);">👋 Hello Admin! Ask me anything about current parking occupancy, billing rates, vehicle records, or Min-Heap algorithms...</p>
+                        </div>
 
-            <!-- The Full-Screen Dynamic Grid -->
-            <div class="slots-full-grid" id="slotsContainer">
-                <!-- Injected via JavaScript -->
-            </div>
-        </section>
+                        <div style="display:flex; gap:10px;">
+                            <input type="text" id="aiInput" placeholder="Ask e.g. How many car slots are available? What is the total revenue?" style="margin:0;" onkeydown="if(event.key==='Enter') askAI()">
+                            <button class="btn" style="padding:0 22px; font-weight:700;" onclick="askAI()"><i class="fa-solid fa-paper-plane"></i> Send</button>
+                        </div>
 
-        <!-- Waitlist & Activity Log Row -->
-        <section class="logs-dual-section">
-            <!-- Waitlist Panel -->
-            <div class="log-card waitlist-card">
-                <div class="log-card-header">
-                    <div class="log-title">
-                        <span>⏳</span>
-                        <h4>Waitlist (FIFO Queue)</h4>
-                    </div>
-                    <span class="queue-count-pill" id="queueBadge">0 in line</span>
-                </div>
-                <div class="waitlist-scroll-area">
-                    <ol id="waitingListContainer" class="waitlist-list">
-                        <li class="empty-state">No vehicles in waitlist.</li>
-                    </ol>
-                </div>
-            </div>
-
-            <!-- Recent Activity / Transactions Log -->
-            <div class="log-card activity-card">
-                <div class="log-card-header">
-                    <div class="log-title">
-                        <span>📋</span>
-                        <h4>Recent Activity Log</h4>
-                    </div>
-                    <div class="log-actions">
-                        <button class="btn-small-outline" onclick="exportActivityCSV()" title="Export CSV">
-                            📥 Export CSV
-                        </button>
-                        <button class="btn-small-outline" onclick="clearActivityLog()" title="Clear Log">
-                            🗑️ Clear
-                        </button>
+                        <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
+                            <button class="theme-btn" style="font-size:0.78rem;" onclick="quickAsk('How many slots are free right now?')">💡 Free slots count?</button>
+                            <button class="theme-btn" style="font-size:0.78rem;" onclick="quickAsk('What is the current total revenue?')">💰 Total revenue?</button>
+                            <button class="theme-btn" style="font-size:0.78rem;" onclick="quickAsk('Explain how the Min-Heap algorithm allocates nearest slots')">⚡ How Min-Heap works?</button>
+                        </div>
                     </div>
                 </div>
-                <div class="activity-table-scroll">
-                    <table class="activity-table">
-                        <thead>
-                            <tr>
-                                <th>Time</th>
-                                <th>Action</th>
-                                <th>Vehicle Plate</th>
-                                <th>Category</th>
-                                <th>Slot</th>
-                                <th>Billed</th>
-                            </tr>
-                        </thead>
-                        <tbody id="activityTableBody">
-                            <tr>
-                                <td colspan="6" class="empty-state">No recent activity logged yet.</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </section>
 
+                <!-- VIEW 4: REGISTERED USER ACCOUNTS VIEW -->
+                <div id="page-users" class="admin-view">
+                    <div class="card" style="padding:22px; margin-bottom:0;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                            <div>
+                                <h2><i class="fa-solid fa-users" style="color:#a855f7;"></i> Registered Accounts & Roles</h2>
+                                <p style="font-size:0.85rem; color:var(--text-sub);">Active system operators, gate staff, administrators & driver accounts</p>
+                            </div>
+                            <span class="gate-pill" style="font-size:0.75rem;">Live User Registry</span>
+                        </div>
+                        <div id="usersList" style="max-height:480px; overflow-y:auto; font-size:0.92rem;"></div>
+                    </div>
+                </div>
+
+                <!-- VIEW 5: AUDIT LOG VIEW -->
+                <div id="page-audit" class="admin-view">
+                    <div class="card" style="padding:22px; margin-bottom:0;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                            <div>
+                                <h2><i class="fa-solid fa-receipt" style="color:var(--red);"></i> Live System Audit Trail</h2>
+                                <p style="font-size:0.85rem; color:var(--text-sub);">Immutable record of all parkings, check-ins, exits, vacates & financial transactions</p>
+                            </div>
+                            <span class="gate-pill" style="font-size:0.75rem;">Real-Time Logging</span>
+                        </div>
+                        <div style="overflow-x:auto;">
+                            <table style="width:100%; border-collapse:collapse; text-align:left;">
+                                <thead>
+                                    <tr style="border-bottom:1px solid var(--card-border); color:var(--text-sub);">
+                                        <th style="padding:12px 10px;">Time</th>
+                                        <th style="padding:12px 10px;">Action</th>
+                                        <th style="padding:12px 10px;">Actor</th>
+                                        <th style="padding:12px 10px;">Details</th>
+                                        <th style="padding:12px 10px;">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="auditBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
     </main>
 
-    <!-- Receipt / Invoice Modal -->
-    <div id="receiptModal" class="modal-backdrop">
-        <div class="modal-card">
-            <div class="receipt-header">
-                <div class="receipt-logo">🅿️</div>
-                <h3>Parking Receipt & Invoice</h3>
-                <span class="receipt-sub">Smart Parking Automated Billing</span>
-            </div>
-            
-            <div class="receipt-divider"></div>
-
-            <div class="receipt-details">
-                <div class="receipt-row"><span>Vehicle Plate:</span><strong id="r-plate">--</strong></div>
-                <div class="receipt-row"><span>Assigned Slot:</span><b id="r-slot">--</b></div>
-                <div class="receipt-row"><span>Vehicle Type:</span><span id="r-type">--</span></div>
-                <div class="receipt-row"><span>Check-In Time:</span><span id="r-in">--</span></div>
-                <div class="receipt-row"><span>Check-Out Time:</span><span id="r-out">--</span></div>
-                <div class="receipt-row"><span>Billed Duration:</span><span id="r-dur">--</span></div>
-                <div class="receipt-row total-highlight">
-                    <span>Total Amount Due:</span>
-                    <strong id="r-total">₹0.00</strong>
-                </div>
-            </div>
-
-            <div class="receipt-footer-msg">Thank you for parking with us! Have a safe drive.</div>
-
-            <div class="modal-buttons">
-                <button onclick="window.print()" class="btn-print">🖨️ Print Ticket</button>
-                <button onclick="closeReceipt()" class="btn-close">Close</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Quick Slot Check-in Modal -->
-    <div id="quickParkModal" class="modal-backdrop">
-        <div class="modal-card quick-park-card">
-            <div class="receipt-header">
-                <div class="receipt-logo">🅿️</div>
-                <h3>Direct Slot Parking</h3>
-                <span class="receipt-sub" id="quickParkSlotSubtitle">Slot Selected</span>
-            </div>
-            <div class="receipt-divider"></div>
-            <div class="quick-park-form">
-                <label for="quickParkPlate">License Plate Number</label>
-                <div class="input-prefix-box">
-                    <span class="plate-flag">🇮🇳</span>
-                    <input type="text" id="quickParkPlate" placeholder="e.g. DL-01-AB-1234">
-                </div>
-                <input type="hidden" id="quickParkType">
-            </div>
-            <div class="modal-buttons" style="margin-top: 20px;">
-                <button onclick="confirmQuickPark()" class="btn-action-primary">Confirm & Park</button>
-                <button onclick="closeQuickPark()" class="btn-close">Cancel</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Toast Notification Container -->
-    <div id="toastContainer" class="toast-container"></div>
-
-    <!-- AI Assistant Floating Widget -->
-    <div class="ai-chat-btn" onclick="toggleAIChat()" id="aiFloatingBtn" title="AI Assistant">
-        <span class="ai-btn-icon">🤖</span>
-        <span class="ai-btn-text">Ask AI Assistant</span>
-        <span class="ai-pulse-ring"></span>
-    </div>
-
-    <div class="ai-chat-window" id="aiChatWindow">
-        <div class="ai-chat-header">
-            <div class="ai-header-info">
-                <span class="ai-avatar">🤖</span>
-                <div>
-                    <strong>Parking AI Assistant</strong>
-                    <span class="ai-subtext">Online • Natural Language</span>
-                </div>
-            </div>
-            <button class="ai-close-btn" onclick="toggleAIChat()">✕</button>
-        </div>
-
-        <div class="ai-chips-bar">
-            <button class="ai-prompt-chip" onclick="quickAIPrompt('How many free spots?')">Free spots?</button>
-            <button class="ai-prompt-chip" onclick="quickAIPrompt('Show total revenue')">Revenue?</button>
-            <button class="ai-prompt-chip" onclick="quickAIPrompt('Park car DL-01-AB-9999')">Park test car</button>
-        </div>
-
-        <div class="ai-messages" id="aiMessages">
-            <div class="msg bot">
-                Hello! I'm your Smart Parking Copilot. You can ask me to park vehicles, vacate slots, check free spaces, or review revenue in plain English.
-            </div>
-        </div>
-
-        <div class="ai-input-area">
-            <input type="text" id="aiUserInput" placeholder="e.g. Park car DL-02-CD-5678..." onkeypress="if(event.key === 'Enter') sendAIMessage()">
-            <button onclick="sendAIMessage()">Send</button>
-        </div>
-    </div>
-
     <script src="script.js"></script>
+    <script>
+        const { user } = checkAuth("Admin");
+        document.getElementById("aName").textContent = user;
+        startLiveClock("adminClock");
+
+        function switchAdminPage(pageKey) {
+            document.querySelectorAll(".sidebar-tab-btn").forEach(btn => btn.classList.remove("active"));
+            document.querySelectorAll(".admin-view").forEach(view => view.classList.remove("active"));
+
+            const targetNav = document.getElementById(`nav-${pageKey}`);
+            const targetPage = document.getElementById(`page-${pageKey}`);
+
+            if (targetNav) targetNav.classList.add("active");
+            if (targetPage) targetPage.classList.add("active");
+
+            if (pageKey === "gps" && adminGpsMap) {
+                setTimeout(() => {
+                    adminGpsMap.invalidateSize();
+                }, 120);
+            }
+        }
+
+        function quickAsk(questionText) {
+            document.getElementById("aiInput").value = questionText;
+            askAI();
+        }
+
+        async function askAI() {
+            const input = document.getElementById("aiInput");
+            const msg = input.value.trim();
+            if (!msg) return;
+
+            const box = document.getElementById("chatHistory");
+            box.innerHTML += `<p style="margin-bottom:6px;"><strong>You:</strong> ${msg}</p>`;
+            input.value = "";
+
+            const res = await fetch(API_URL + "/api/ai-chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: msg })
+            });
+            const data = await res.json();
+            box.innerHTML += `<p style="margin-bottom:10px; color:var(--accent);"><strong>AI:</strong> ${data.reply}</p>`;
+            box.scrollTop = box.scrollHeight;
+        }
+
+        let cachedAdminSlots = [];
+        let adminGpsMap = null;
+
+        function initAdminGpsMap(availCount, totalCount) {
+            const mapEl = document.getElementById("adminGpsMap");
+            if (!mapEl || typeof L === "undefined") return;
+
+            const lat = 28.3670;
+            const lng = 79.4304;
+
+            const badge = document.getElementById("adminAvailBadge");
+            if (badge && totalCount !== undefined) {
+                badge.innerHTML = `🟢 ${availCount} / ${totalCount} Slots Available`;
+            }
+
+            if (!adminGpsMap) {
+                adminGpsMap = L.map('adminGpsMap').setView([lat, lng], 15);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(adminGpsMap);
+
+                L.marker([lat, lng]).addTo(adminGpsMap).bindPopup(`
+                    <div style="font-family:sans-serif; text-align:center; padding:6px; min-width:200px;">
+                        <strong style="color:#2563eb; font-size:1.05rem;">YuktiTech Admin Control Center</strong><br>
+                        <span style="color:#10b981; font-weight:800; font-size:0.95rem;">● ${availCount || 0} / ${totalCount || 0} Slots Free</span><br>
+                        <small style="color:#64748b;">Civil Lines, Bareilly (UP-25)</small>
+                    </div>
+                `).openPopup();
+            }
+        }
+
+        function renderAdminMap() {
+            const lvl = document.getElementById("adminLevelFilter") ? document.getElementById("adminLevelFilter").value : "L1";
+            const carGrid = document.getElementById("adminCarSlots");
+            const bikeGrid = document.getElementById("adminBikeSlots");
+            if (!carGrid || !bikeGrid) return;
+
+            carGrid.innerHTML = "";
+            bikeGrid.innerHTML = "";
+
+            cachedAdminSlots.filter(s => s.level === lvl).forEach(s => {
+                const div = document.createElement("div");
+                div.className = `slot-box ${s.status}`;
+                const icon = s.type === "Car" ? "🚗" : "🏍️";
+                const color = s.status === "AVAILABLE" ? "#10b981" : (s.status === "RESERVED" ? "#f59e0b" : "#ef4444");
+
+                div.innerHTML = `
+                    <div style="font-size:1.6rem; margin-bottom:4px;">${icon}</div>
+                    <strong>${s.slot_id} (${s.type})</strong>
+                    <div class="slot-dist" style="font-size:0.75rem; margin:2px 0;">📍 ${s.distance}m from gate</div>
+                    <div class="slot-status" style="font-size:0.82rem; font-weight:800; color:${color}; margin:3px 0;">${s.status}</div>
+                    <div class="slot-desc" style="font-size:0.82rem; font-weight:700; margin-top:2px;">
+                        ${s.vehicle_no ? s.vehicle_no : 'Empty'}
+                    </div>
+                    <div class="slot-time" style="font-size:0.75rem; margin-top:2px;">
+                        ${s.entry_time_str ? '⏱️ In: ' + s.entry_time_str : ''}
+                    </div>
+                `;
+
+                if (s.type === "Car") carGrid.appendChild(div);
+                else bikeGrid.appendChild(div);
+            });
+        }
+
+        async function loadAdminData() {
+            const [statusRes, usersRes] = await Promise.all([
+                fetch(API_URL + "/api/status"),
+                fetch(API_URL + "/api/users")
+            ]);
+            const data = await statusRes.json();
+            const uData = await usersRes.json();
+
+            cachedAdminSlots = data.slots || [];
+            renderAdminMap();
+            initAdminGpsMap(data.available, data.total);
+
+            document.getElementById("kTotal").textContent = data.total;
+            document.getElementById("kAvail").textContent = data.available;
+            document.getElementById("kBusy").textContent = `${data.reserved} Res / ${data.occupied} Occ`;
+            document.getElementById("kRev").textContent = `₹${data.total_revenue.toFixed(2)}`;
+
+            document.getElementById("usersList").innerHTML = (uData.users || []).map(u => `
+                <div style="padding:8px 0; border-bottom:1px solid var(--card-border); display:flex; justify-content:space-between;">
+                    <span><strong>${u.username}</strong> (${u.role})</span>
+                    <small style="color:var(--text-sub);">${u.created_at}</small>
+                </div>
+            `).join("");
+
+            document.getElementById("auditBody").innerHTML = data.audit_logs.map(log => `
+                <tr style="border-bottom:1px solid var(--card-border);">
+                    <td style="padding:10px;">${log.time}</td>
+                    <td style="padding:10px;"><strong>${log.action}</strong></td>
+                    <td style="padding:10px;">${log.actor}</td>
+                    <td style="padding:10px;">${log.details}</td>
+                    <td style="padding:10px;">${log.amount > 0 ? '₹' + log.amount.toFixed(2) : '-'}</td>
+                </tr>
+            `).join("");
+        }
+
+        loadAdminData();
+        setInterval(loadAdminData, 3500);
+    </script>
 </body>
 </html>

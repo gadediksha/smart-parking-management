@@ -2,113 +2,137 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Smart Parking System</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body class="split-body">
-
-<div class="split-wrapper">
-    <div class="split-image-panel">
-        <div id="splitBg" class="split-bg-image"></div>
-        <div class="split-image-overlay">
-            <h2>Smart Parking System</h2>
-            <p>Automated Slot Allocation • Min-Heap Optimization • AI Assistant</p>
-        </div>
-    </div>
-
-    <div class="split-form-panel">
-        <div class="form-wrapper">
-            <h2>Operator Login</h2>
-            <p class="sub-heading">Please enter your administrative credentials.</p>
-
-            <div id="loginAlert" class="alert-box"></div>
-
-            <form id="loginForm" onsubmit="handleLogin(event)">
-                <div class="form-group">
-                    <label>Username</label>
-                    <input type="text" id="username" placeholder="admin" required autocomplete="username">
-                </div>
-
-                <div class="form-group">
-                    <label>Password</label>
-                    <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password">
-                </div>
-
-                <button type="submit" class="btn-primary">Sign In</button>
-            </form>
-        </div>
-    </div>
-</div>
-
-<script>
-    const images = [
-        "https://images.unsplash.com/photo-1506521781263-d8422e82f27a?auto=format&fit=crop&w=1600&q=80",
-        "https://images.unsplash.com/photo-1470224114660-3f6686c562eb?auto=format&fit=crop&w=1600&q=80",
-        "https://images.unsplash.com/photo-1590674899484-d5640e854abe?auto=format&fit=crop&w=1600&q=80"
-    ];
-    let idx = 0;
-    const bgElement = document.getElementById("splitBg");
-    bgElement.style.backgroundImage = `url('${images[0]}')`;
-
-    setInterval(() => {
-        idx = (idx + 1) % images.length;
-        bgElement.style.opacity = "0.2";
-        setTimeout(() => {
-            bgElement.style.backgroundImage = `url('${images[idx]}')`;
-            bgElement.style.opacity = "1";
-        }, 400);
-    }, 5000);
-
-    async function handleLogin(e) {
-        e.preventDefault();
-        const username = document.getElementById("username").value.trim();
-        const password = document.getElementById("password").value.trim();
-        const alertBox = document.getElementById("loginAlert");
-
-        try {
-            const res = await fetch("https://smart-parking-management-5.onrender.com/api/login", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ username, password })
-            });
-
-            const data = await res.json();
-            if (data.success) {
-                localStorage.setItem("parking_user", data.user);
-                window.location.href = "index.html";
-            } else {
-                alertBox.innerText = data.message || "Invalid credentials!";
-                alertBox.style.display = "block";
-                alertBox.style.background = "#fee2e2";
-                alertBox.style.color = "#dc2626";
-            }
-        } catch (err) {
-            alertBox.innerText = "Cannot connect to the backend server!";
-            alertBox.style.display = "block";
-            alertBox.style.background = "#fee2e2";
-            alertBox.style.color = "#dc2626";
+    <link rel="stylesheet" href="style.css?v=4">
+    <style>
+        .split-wrap { display: flex; min-height: 100vh; }
+        .left-visual {
+            flex: 1.2;
+            background-size: cover;
+            background-position: center;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 36px;
+            color: #fff;
+            transition: background-image 0.4s ease;
         }
-    }
-</script>
+        .left-visual::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to top, rgba(3,7,18,0.92), rgba(3,7,18,0.3));
+        }
+        .visual-z { position: relative; z-index: 2; }
+        .right-form {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        @media (max-width: 820px) { .left-visual { display: none; } }
+    </style>
+</head>
+<body>
+    <div class="split-wrap">
+        <div class="left-visual" id="loginVisual">
+            <div class="visual-z" style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="background:#2563eb; padding:6px 14px; border-radius:20px; font-weight:700; font-size:0.85rem;">YuktiTech OS</span>
+            </div>
+            <div class="visual-z">
+                <h1 id="visualHeading" style="font-size:2rem; margin-bottom:8px;">Bareilly Smart Parking Plaza (UP-25)</h1>
+                <p style="color:#cbd5e1;">Civil Lines, Bareilly • Min-Heap Allocation • QR Reservation • Per-Minute Billing</p>
+            </div>
+        </div>
+
+        <div class="right-form">
+            <div class="card" style="width:100%; max-width:410px; margin:0;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                    <h2 id="formTitle">System Login</h2>
+                    <button class="theme-btn" onclick="toggleTheme()">🌓 Theme</button>
+                </div>
+
+                <label>Username</label>
+                <input type="text" id="username" placeholder="Enter username">
+
+                <label>Password</label>
+                <input type="password" id="password" placeholder="Enter password">
+
+                <div id="roleWrap" style="display:none;">
+                    <label>Select Role</label>
+                    <select id="role">
+                        <option value="User">Driver / User</option>
+                        <option value="Staff">Staff / Gate Attendant</option>
+                        <option value="Admin">Administrator</option>
+                    </select>
+                </div>
+
+                <button class="btn" style="width:100%;" id="submitBtn" onclick="handleAuth()">Sign In</button>
+
+                <p style="margin-top:16px; text-align:center; font-size:0.9rem; color:var(--text-sub);">
+                    <span id="toggleText">Don't have an account?</span>
+                    <a href="#" style="color:var(--accent); font-weight:700;" onclick="toggleMode()">Register here</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        let imgIdx = 0;
+        function renderLoginVisual() {
+            const item = PARKING_VISUALS[imgIdx];
+            document.getElementById("loginVisual").style.backgroundImage = `url('${item.url}')`;
+            document.getElementById("visualHeading").textContent = item.title;
+        }
+        function switchLoginPhoto() {
+            imgIdx = (imgIdx + 1) % PARKING_VISUALS.length;
+            renderLoginVisual();
+        }
+        renderLoginVisual();
+
+        // Har 5 second me image automatically change hogi
+        setInterval(switchLoginPhoto, 5000);
+        let isRegister = false;
+        function toggleMode() {
+            isRegister = !isRegister;
+            document.getElementById("formTitle").textContent = isRegister ? "Create Account" : "System Login";
+            document.getElementById("submitBtn").textContent = isRegister ? "Register" : "Sign In";
+            document.getElementById("roleWrap").style.display = isRegister ? "block" : "none";
+            document.getElementById("toggleText").textContent = isRegister ? "Already have an account?" : "Don't have an account?";
+        }
+
+        async function handleAuth() {
+            const username = document.getElementById("username").value.trim();
+            const password = document.getElementById("password").value.trim();
+            const role = document.getElementById("role").value;
+
+            const endpoint = isRegister ? "/api/register" : "/api/login";
+            try {
+                const res = await fetch(API_URL + endpoint, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username, password, role })
+                });
+                const data = await res.json();
+                if (!data.success) return alert(data.message);
+
+                if (isRegister) {
+                    alert(data.message);
+                    toggleMode();
+                } else {
+                    localStorage.setItem("parking_user", data.user);
+                    localStorage.setItem("parking_role", data.role);
+                    if (data.role === "Admin") window.location.href = "index.html";
+                    else if (data.role === "Staff") window.location.href = "staff-dashboard.html";
+                    else window.location.href = "user-dashboard.html";
+                }
+            } catch (err) {
+                alert("Backend server is not running on port 5000!");
+            }
+        }
+    </script>
 </body>
 </html>
-<form id="loginForm" onsubmit="handleLogin(event)">
-                <div class="form-group">
-                    <label>Username</label>
-                    <input type="text" id="username" placeholder="admin" required autocomplete="username">
-                </div>
-
-                <div class="form-group">
-                    <label>Password</label>
-                    <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password">
-                </div>
-
-                <button type="submit" class="btn-primary">Sign In</button>
-            </form>
-
-            <!-- Register Page Link -->
-            <p style="margin-top: 20px; font-size: 13px; text-align: center; color: #64748b;">
-                Don't have an account? 
-                <a href="register.html" style="color: #2563eb; text-decoration: none; font-weight: 600;">Register here</a>
-            </p>

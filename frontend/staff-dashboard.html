@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Staff Gate Panel - YuktiTech</title>
+    <link rel="stylesheet" href="style.css?v=3">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+    <header class="top-nav">
+        <div class="brand-badge">
+            <div class="brand-icon">🛡️</div>
+            <div>
+                <div class="brand-title">YuktiTech <span>Staff Gate</span></div>
+                <small style="color:#10b981; font-weight:700;">● TIME: <span id="staffClock"></span></small>
+            </div>
+        </div>
+        <div class="nav-actions">
+            <button class="theme-btn" onclick="toggleSidebar()"><i class="fa-solid fa-table-columns"></i> Sidebar</button>
+            <button class="theme-btn" onclick="toggleTheme()">🌓 Theme</button>
+            <div class="user-chip" id="sName"></div>
+            <button class="btn btn-red" onclick="localStorage.clear(); sessionStorage.clear(); window.location.replace('login.html?v=' + Date.now());">Logout</button>
+        </div>
+    </header>
+
+    <main class="page-wrap">
+        <div class="dashboard-layout">
+            <!-- LEFT SIDEBAR: GATE TASKS & OPERATIONS -->
+            <aside class="sidebar-panel">
+                <div class="card" style="padding:18px; margin-bottom:0;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <h3 style="margin:0; font-size:1.05rem;"><i class="fa-solid fa-list-check" style="color:var(--accent);"></i> Gate Operations</h3>
+                        <span class="gate-pill" style="font-size:0.75rem; padding:4px 8px;">Gate 1 Online</span>
+                    </div>
+
+                    <!-- Task Navigation Switcher -->
+                    <div class="task-nav-pills">
+                        <button class="task-pill-btn active" id="pill-walkin" onclick="switchStaffTask('walkin')">
+                            <i class="fa-solid fa-square-parking"></i>
+                            <span>Walk-In</span>
+                        </button>
+                        <button class="task-pill-btn" id="pill-qr" onclick="switchStaffTask('qr')">
+                            <i class="fa-solid fa-qrcode"></i>
+                            <span>QR Pass</span>
+                        </button>
+                        <button class="task-pill-btn" id="pill-exit" onclick="switchStaffTask('exit')">
+                            <i class="fa-solid fa-receipt"></i>
+                            <span>Exit & Bill</span>
+                        </button>
+                    </div>
+
+                    <div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
+                        <button id="btnViewAll" class="btn" style="padding:4px 10px; font-size:0.75rem; background:transparent; border:1px solid var(--card-border); color:var(--text-sub);" onclick="toggleAllTasksView()">
+                            <i class="fa-solid fa-layer-group"></i> <span id="viewAllText">Show All 3 Tasks</span>
+                        </button>
+                    </div>
+
+                    <!-- Tasks Container -->
+                    <div id="tasksContainer">
+                        <!-- 1. Walk-In Entry -->
+                        <div class="task-panel-item active" id="task-walkin">
+                            <div style="border-left:3px solid var(--green); padding-left:10px; margin-bottom:12px;">
+                                <h4 style="margin:0; color:var(--text-main); font-size:0.95rem;">1. Walk-In Entry (Min-Heap Auto)</h4>
+                                <small style="color:var(--text-sub); font-size:0.75rem;">Instant closest bay allocation</small>
+                            </div>
+                            <label>Vehicle Plate Number</label>
+                            <input type="text" id="walkinPlate" placeholder="e.g. UP-25-AB-1234">
+                            <label>Vehicle Type</label>
+                            <select id="walkinType">
+                                <option value="Car">Car (₹0.50 / min)</option>
+                                <option value="Bike">Bike (₹0.25 / min)</option>
+                            </select>
+                            <button class="btn btn-green" style="width:100%; margin-top:4px;" onclick="parkWalkin()">
+                                <i class="fa-solid fa-square-parking"></i> Assign Nearest Slot
+                            </button>
+                        </div>
+
+                        <!-- 2. QR Check-In -->
+                        <div class="task-panel-item" id="task-qr">
+                            <div style="border-left:3px solid var(--amber); padding-left:10px; margin-bottom:12px;">
+                                <h4 style="margin:0; color:var(--text-main); font-size:0.95rem;">2. Reserved QR Check-In</h4>
+                                <small style="color:var(--text-sub); font-size:0.75rem;">Verify driver advance booking pass</small>
+                            </div>
+                            <label>QR Pass Code</label>
+                            <input type="text" id="qrInput" placeholder="e.g. QR-1A2B3C">
+                            <button class="btn btn-amber" style="width:100%; margin-top:4px;" onclick="checkInQR()">
+                                <i class="fa-solid fa-qrcode"></i> Verify QR & Admit Vehicle
+                            </button>
+                        </div>
+
+                        <!-- 3. Exit & Fair Bill -->
+                        <div class="task-panel-item" id="task-exit">
+                            <div style="border-left:3px solid var(--red); padding-left:10px; margin-bottom:12px;">
+                                <h4 style="margin:0; color:var(--text-main); font-size:0.95rem;">3. Vehicle Exit & Fair Billing</h4>
+                                <small style="color:var(--text-sub); font-size:0.75rem;">Vacate slot & calculate fair bill</small>
+                            </div>
+                            <label>Departing Vehicle Plate</label>
+                            <input type="text" id="exitPlate" placeholder="e.g. UP-25-AB-1234">
+                            <label>Simulate Minutes (Optional for 20m Test)</label>
+                            <input type="number" id="testMins" placeholder="Leave blank for real live clock">
+                            <button class="btn btn-red" style="width:100%; margin-top:4px;" onclick="vacateVehicle()">
+                                <i class="fa-solid fa-receipt"></i> Generate Receipt & Vacate
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Operator Shortcuts & Info -->
+                <div class="card" style="padding:14px; font-size:0.82rem; color:var(--text-sub); margin-bottom:0;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; color:var(--accent); font-weight:700;">
+                        <i class="fa-solid fa-lightbulb"></i> Operator Shortcuts
+                    </div>
+                    <ul style="margin-left:18px; line-height:1.5;">
+                        <li>Click <strong style="color:var(--green);">Available</strong> bay on map &rarr; selects Walk-In.</li>
+                        <li>Click <strong style="color:var(--red);">Occupied</strong> bay on map &rarr; auto-fills Exit plate.</li>
+                        <li>Plate format strictly enforced: <code>UP-25-AB-1234</code>.</li>
+                    </ul>
+                </div>
+            </aside>
+
+            <!-- RIGHT MAIN PANEL: BLUEPRINT FLOOR MAP & GPS MAP -->
+            <section class="main-content">
+                <!-- Map View Switcher -->
+                <div style="display:flex; justify-content:space-between; align-items:center; background:var(--panel-bg); border:1.5px solid var(--card-border); padding:8px 12px; border-radius:12px; flex-wrap:wrap; gap:10px;">
+                    <div style="display:flex; gap:8px;">
+                        <button class="btn" id="staffTab-blueprint" style="padding:7px 14px; font-size:0.85rem;" onclick="switchStaffView('blueprint')">
+                            <i class="fa-solid fa-layer-group"></i> Blueprint Floor Map
+                        </button>
+                        <button class="btn" id="staffTab-gps" style="padding:7px 14px; font-size:0.85rem; background:transparent; border:1px solid var(--card-border); color:var(--text-main);" onclick="switchStaffView('gps')">
+                            <i class="fa-solid fa-map-location-dot" style="color:var(--green);"></i> Bareilly GPS Map
+                        </button>
+                    </div>
+                    <span class="gate-pill" style="font-size:0.75rem;">Civil Lines, Bareilly (UP-25)</span>
+                </div>
+
+                <!-- VIEW 1: BLUEPRINT FLOOR MAP -->
+                <div id="staffView-blueprint" class="admin-view active">
+                    <div class="card" style="margin-bottom:0;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+                            <div>
+                                <h2><i class="fa-solid fa-layer-group" style="color:var(--accent);"></i> Interactive Facility Blueprint Floor Map</h2>
+                                <p style="font-size:0.85rem; color:var(--text-sub);">Click any Occupied slot to auto-fill Exit Plate, or an Available slot to park</p>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <label style="margin:0; font-weight:700;">Floor Level:</label>
+                                <select id="staffLevelFilter" style="width:190px; margin:0;" onchange="renderStaffMap()">
+                                    <option value="L1">Level 1 (Ground Floor)</option>
+                                    <option value="L2">Level 2 (Upper Deck)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="facility-plan">
+                            <div class="gateway-banner">
+                                <div class="gate-pill"><i class="fa-solid fa-arrow-down"></i> MAIN VEHICLE ENTRANCE (GATE 1)</div>
+                                <div class="exit-pill"><i class="fa-solid fa-arrow-up"></i> AUTOMATED EXIT BOOTH & BARRIER</div>
+                            </div>
+
+                            <p style="color:var(--text-sub); font-size:0.82rem; font-weight:700; margin-bottom:10px;">ZONE A: CAR SLOTS (₹0.50 / min)</p>
+                            <div class="grid-4" id="staffCarSlots"></div>
+
+                            <div class="driveway">◀ ◀ ◀ DRIVEWAY & VEHICLE PASSAGEWAY ▶ ▶ ▶</div>
+
+                            <p style="color:var(--text-sub); font-size:0.82rem; font-weight:700; margin-bottom:10px;">ZONE B: BIKE SLOTS (₹0.25 / min)</p>
+                            <div class="grid-4" id="staffBikeSlots"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VIEW 2: FACILITY GPS MAP -->
+                <div id="staffView-gps" class="admin-view">
+                    <div class="card" style="padding:22px; margin-bottom:0;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+                            <div>
+                                <h2><i class="fa-solid fa-map-location-dot" style="color:var(--accent);"></i> Live Facility GPS & Area Map (Bareilly)</h2>
+                                <p style="font-size:0.85rem; color:var(--text-sub);">YuktiTech Smart Parking Plaza • Civil Lines Gate 1, Bareilly (UP-25) • 28.3670° N, 79.4304° E</p>
+                            </div>
+                            <a href="https://maps.google.com/?q=28.3670,79.4304" target="_blank" class="btn btn-amber" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+                                <i class="fa-solid fa-diamond-turn-right"></i> Open in Google Maps
+                            </a>
+                        </div>
+                        <div id="staffGpsMap" style="height:440px; width:100%; border-radius:12px; border:1.5px solid var(--card-border); z-index:10;"></div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script src="script.js"></script>
+    <script>
+        const { user } = checkAuth("Staff");
+        document.getElementById("sName").textContent = user;
+        startLiveClock("staffClock");
+
+        let cachedSlots = [];
+        let staffMap = null;
+        let allTasksMode = false;
+
+        function switchStaffTask(taskName) {
+            allTasksMode = false;
+            const container = document.getElementById("tasksContainer");
+            if (container) container.classList.remove("show-all-tasks");
+
+            document.querySelectorAll(".task-pill-btn").forEach(b => b.classList.remove("active"));
+            document.querySelectorAll(".task-panel-item").forEach(p => p.classList.remove("active"));
+
+            const pill = document.getElementById(`pill-${taskName}`);
+            const panel = document.getElementById(`task-${taskName}`);
+            if (pill) pill.classList.add("active");
+            if (panel) panel.classList.add("active");
+
+            const viewAllText = document.getElementById("viewAllText");
+            if (viewAllText) viewAllText.textContent = "Show All 3 Tasks";
+        }
+
+        function toggleAllTasksView() {
+            allTasksMode = !allTasksMode;
+            const container = document.getElementById("tasksContainer");
+            const viewAllText = document.getElementById("viewAllText");
+
+            if (allTasksMode) {
+                container.classList.add("show-all-tasks");
+                document.querySelectorAll(".task-pill-btn").forEach(b => b.classList.remove("active"));
+                if (viewAllText) viewAllText.textContent = "Show Single Task";
+            } else {
+                container.classList.remove("show-all-tasks");
+                switchStaffTask('walkin');
+            }
+        }
+
+        function switchStaffView(v) {
+            const btnBlueprint = document.getElementById("staffTab-blueprint");
+            const btnGps = document.getElementById("staffTab-gps");
+            const viewBlueprint = document.getElementById("staffView-blueprint");
+            const viewGps = document.getElementById("staffView-gps");
+
+            if (v === "blueprint") {
+                btnBlueprint.style.background = "var(--accent)";
+                btnBlueprint.style.color = "#ffffff";
+                btnBlueprint.style.border = "none";
+                btnGps.style.background = "transparent";
+                btnGps.style.color = "var(--text-main)";
+                btnGps.style.border = "1px solid var(--card-border)";
+
+                viewBlueprint.classList.add("active");
+                viewGps.classList.remove("active");
+            } else {
+                btnGps.style.background = "var(--accent)";
+                btnGps.style.color = "#ffffff";
+                btnGps.style.border = "none";
+                btnBlueprint.style.background = "transparent";
+                btnBlueprint.style.color = "var(--text-main)";
+                btnBlueprint.style.border = "1px solid var(--card-border)";
+
+                viewGps.classList.add("active");
+                viewBlueprint.classList.remove("active");
+
+                if (staffMap) {
+                    setTimeout(() => { staffMap.invalidateSize(); }, 120);
+                }
+            }
+        }
+
+        function initStaffGpsMap() {
+            const mapEl = document.getElementById("staffGpsMap");
+            if (!mapEl || typeof L === "undefined") return;
+            if (staffMap) return;
+
+            const lat = 28.3670;
+            const lng = 79.4304;
+            staffMap = L.map('staffGpsMap').setView([lat, lng], 15);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(staffMap);
+
+            L.marker([lat, lng]).addTo(staffMap).bindPopup(`
+                <div style="font-family:sans-serif; text-align:center; padding:6px; min-width:180px;">
+                    <strong style="color:#2563eb; font-size:1rem;">YuktiTech Staff Gate Booth</strong><br>
+                    <span style="color:#10b981; font-weight:700;">● Civil Lines, Bareilly (UP-25)</span><br>
+                    <small style="color:#64748b;">Boom Barrier System Online</small>
+                </div>
+            `).openPopup();
+        }
+
+        async function checkInQR() {
+            const qr_code = document.getElementById("qrInput").value.trim();
+            if (!qr_code) return alert("⚠️ Please enter a QR Pass code.");
+            const res = await fetch(API_URL + "/api/checkin-qr", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ qr_code, staff: user })
+            });
+            const data = await res.json();
+            alert(data.message);
+            document.getElementById("qrInput").value = "";
+            refreshSlots();
+        }
+
+        async function parkWalkin() {
+            const rawPlate = document.getElementById("walkinPlate").value.trim();
+            const check = validateVehiclePlate(rawPlate);
+            if (!check.valid) {
+                return alert("⚠️ " + check.message);
+            }
+            const vehicle_no = check.formatted;
+            const vehicle_type = document.getElementById("walkinType").value;
+            const res = await fetch(API_URL + "/api/park", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ vehicle_no, vehicle_type, actor: user })
+            });
+            const data = await res.json();
+            alert(data.message);
+            document.getElementById("walkinPlate").value = "";
+            refreshSlots();
+        }
+
+        async function vacateVehicle() {
+            const rawPlate = document.getElementById("exitPlate").value.trim();
+            if (!rawPlate) return alert("⚠️ Please enter departing vehicle plate.");
+            const check = validateVehiclePlate(rawPlate);
+            const vehicle_no = check.valid ? check.formatted : rawPlate.toUpperCase();
+            const test_minutes = document.getElementById("testMins").value;
+            const res = await fetch(API_URL + "/api/vacate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ vehicle_no, actor: user, test_minutes })
+            });
+            const data = await res.json();
+            if (!data.success) return alert(data.message);
+            const r = data.receipt;
+            alert(`PARKING RECEIPT\nVehicle: ${r.vehicle_no}\nSlot: ${r.slot_id} (${r.level})\nEntry Time: ${r.entry_time}\nExit Time: ${r.exit_time}\nDuration: ${r.duration_str}\nRate: ₹${r.rate_per_min}/min\nTotal Bill: ₹${r.total_bill}`);
+            document.getElementById("exitPlate").value = "";
+            document.getElementById("testMins").value = "";
+            refreshSlots();
+        }
+
+        async function refreshSlots() {
+            try {
+                const res = await fetch(API_URL + "/api/status");
+                const data = await res.json();
+                cachedSlots = data.slots || [];
+                renderStaffMap();
+                initStaffGpsMap();
+            } catch (err) {
+                console.error("Status update error", err);
+            }
+        }
+
+        function renderStaffMap() {
+            const lvl = document.getElementById("staffLevelFilter") ? document.getElementById("staffLevelFilter").value : "L1";
+            const carGrid = document.getElementById("staffCarSlots");
+            const bikeGrid = document.getElementById("staffBikeSlots");
+            if (!carGrid || !bikeGrid) return;
+
+            carGrid.innerHTML = "";
+            bikeGrid.innerHTML = "";
+
+            cachedSlots.filter(s => s.level === lvl).forEach(s => {
+                const div = document.createElement("div");
+                div.className = `slot-box ${s.status}`;
+                const icon = s.type === "Car" ? "fa-car" : "fa-motorcycle";
+                const color = s.status === "AVAILABLE" ? "#10b981" : (s.status === "RESERVED" ? "#f59e0b" : "#ef4444");
+
+                div.innerHTML = `
+                    <div style="font-size:1.6rem; color:${color}; margin-bottom:6px;"><i class="fa-solid ${icon}"></i></div>
+                    <strong>${s.slot_id} (${s.type})</strong>
+                    <div class="slot-dist" style="font-size:0.75rem; margin:2px 0;">📍 ${s.distance}m from gate</div>
+                    <div class="slot-status" style="font-size:0.82rem; font-weight:800; color:${color}; margin:3px 0;">${s.status}</div>
+                    <div class="slot-desc" style="font-size:0.82rem; font-weight:700; margin-top:2px;">
+                        ${s.vehicle_no ? s.vehicle_no : 'Click to Auto-fill'}
+                    </div>
+                    <div class="slot-time" style="font-size:0.75rem; margin-top:2px;">
+                        ${s.entry_time_str ? '⏱️ In: ' + s.entry_time_str : ''}
+                    </div>
+                `;
+
+                if (s.status === "OCCUPIED" && s.vehicle_no) {
+                    div.title = "Click to set Exit Plate in sidebar";
+                    div.onclick = () => {
+                        switchStaffTask('exit');
+                        document.getElementById("exitPlate").value = s.vehicle_no;
+                        document.getElementById("exitPlate").focus();
+                    };
+                } else if (s.status === "AVAILABLE") {
+                    div.title = "Click to select Walk-In slot type in sidebar";
+                    div.onclick = () => {
+                        switchStaffTask('walkin');
+                        document.getElementById("walkinType").value = s.type;
+                        document.getElementById("walkinPlate").focus();
+                    };
+                }
+
+                if (s.type === "Car") carGrid.appendChild(div);
+                else bikeGrid.appendChild(div);
+            });
+        }
+
+        refreshSlots();
+        setInterval(refreshSlots, 3500);
+    </script>
+</body>
+</html>

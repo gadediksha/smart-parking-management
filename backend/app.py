@@ -1,309 +1,433 @@
 import heapq
 import time
-from collections import deque
-import re
 import os
-from dotenv import load_dotenv
-from flask import Flask, jsonify, request
+import json
+import uuid
+import re
+from collections import deque
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
-
-load_dotenv()
+from ai_assistant import ParkingAIAssistant
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
-@app.before_request
-def handle_preflight():
-    if request.method == "OPTIONS":
-        res = jsonify({"status": "ok"})
-        res.headers.add("Access-Control-Allow-Origin", "*")
-        res.headers.add("Access-Control-Allow-Headers", "*")
-        res.headers.add("Access-Control-Allow-Methods", "*")
-        return res
+@app.after_request
+def add_no_cache_headers(response):
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
+VALID_INDIAN_STATES = {
+    "AN", "AP", "AR", "AS", "BR", "CH", "CG", "DD", "DL", "DN", "GA", "GJ",
+    "HP", "HR", "JH", "JK", "KA", "KL", "LA", "LD", "MH", "ML", "MN", "MP",
+    "MZ", "NL", "OD", "OR", "PB", "PY", "RJ", "SK", "TN", "TR", "TS", "UA",
+    "UK", "UP", "WB"
+}
+
+def validate_and_format_plate(plate_str):
+    if not plate_str or not isinstance(plate_str, str):
+        return False, None, "Vehicle plate number is required."
+
+    clean = re.sub(r'[^A-Za-z0-9]', '', plate_str).upper()
+    if len(clean) < 6 or len(clean) > 11:
+        return False, None, "Invalid license plate length! Format must be like UP-25-AB-1234, DL-01-AB-1234."
+
+    # BH Series: e.g. 22BH1234AA
+    bh_match = re.match(r'^([0-9]{2})BH([0-9]{4})([A-Z]{1,2})$', clean)
+    if bh_match:
+        return True, f"{bh_match.group(1)}-BH-{bh_match.group(2)}-{bh_match.group(3)}", "Valid"
+
+    # Standard format: State(2) + RTO(1-2) + Series(0-3) + Number(1-4)
+    std_match = re.match(r'^([A-Z]{2})([0-9]{1,2})([A-Z]{0,3})([0-9]{1,4})$', clean)
+    if not std_match:
+        return False, None, "Invalid license plate format! Example: UP-25-AB-1234 or DL-01-AB-1234."
+
+    state, rto, series, num = std_match.groups()
+    if state not in VALID_INDIAN_STATES:
+        return False, None, f"Invalid State code '{state}'. Must be a valid Indian state (UP, DL, MH, HR, etc.)."
+
+    rto_fmt = rto.zfill(2)
+    num_fmt = num.zfill(4)
+    if series:
+        return True, f"{state}-{rto_fmt}-{series}-{num_fmt}", "Valid"
+    return True, f"{state}-{rto_fmt}-{num_fmt}", "Valid"
+
+FRONTEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "frontend"))
+
+USERS_FILE = os.path.join(os.path.dirname(__file__), "users.json")
+
+def load_users():
+    if not os.path.exists(USERS_FILE):
+        save_users({})
+        return {}
+    try:
+        with open(USERS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def save_users(users_dict):
+    with open(USERS_FILE, "w", encoding="utf-8") as f:
+        json.dump(users_dict, f, indent=2)
+
+load_users()
 
 class ParkingSlot:
-    def __init__(self, slot_id, distance, slot_type):
+    def __init__(self, slot_id, level, distance, slot_type):
         self.slot_id = slot_id
+        self.level = level
         self.distance = distance
         self.slot_type = slot_type
-        self.is_occupied = False
+        self.status = "AVAILABLE"   # AVAILABLE, RESERVED, OCCUPIED
         self.vehicle_no = None
         self.entry_time = None
+        self.reserved_by = None
+        self.qr_code = None
 
     def __lt__(self, other):
+        if self.distance == other.distance:
+            return self.slot_id < other.slot_id
         return self.distance < other.distance
 
-class ParkingLotDSA:
-    def __init__(self, car_count=4, bike_count=4):
-        self.rates = {"Car": 30.0, "Bike": 15.0}
+class MultiLevelParkingSystem:
+    def __init__(self):
         self.car_heap = []
         self.bike_heap = []
         self.all_slots = {}
-
-        for i in range(1, car_count + 1):
-            s = ParkingSlot(f"C-{i}", i * 10, "Car")
-            heapq.heappush(self.car_heap, s)
-            self.all_slots[s.slot_id] = s
-
-        for i in range(1, bike_count + 1):
-            s = ParkingSlot(f"B-{i}", i * 8, "Bike")
-            heapq.heappush(self.bike_heap, s)
-            self.all_slots[s.slot_id] = s
-
         self.active_vehicles = {}
-        self.car_queue = deque()
-        self.bike_queue = deque()
+        self.reservations = {}
+        self.waitlist = deque()
         self.total_revenue = 0.0
-        self.activities = []
+        self.audit_logs = []
 
-    def log_activity(self, act_type, vehicle_no, v_type, slot_id, bill=0.0):
-        self.activities.insert(0, {
-            "type": act_type,
-            "vehicle_no": vehicle_no,
-            "vehicle_type": v_type,
-            "slot_id": slot_id,
-            "bill": bill,
-            "time": time.strftime("%H:%M:%S")
+        # Level 1 (Ground Floor - Nearest to Gate)
+        for i in range(1, 5):
+            self._add_slot(f"L1-C{i}", "L1", i * 10, "Car")
+            self._add_slot(f"L1-B{i}", "L1", i * 8, "Bike")
+
+        # Level 2 (Upper Deck)
+        for i in range(1, 5):
+            self._add_slot(f"L2-C{i}", "L2", 50 + (i * 10), "Car")
+            self._add_slot(f"L2-B{i}", "L2", 40 + (i * 8), "Bike")
+
+    def _add_slot(self, slot_id, level, dist, s_type):
+        s = ParkingSlot(slot_id, level, dist, s_type)
+        self.all_slots[slot_id] = s
+        heapq.heappush(self.car_heap if s_type == "Car" else self.bike_heap, s)
+
+    def log_audit(self, action, actor, details, amount=0.0):
+        self.audit_logs.insert(0, {
+            "time": time.strftime("%I:%M:%S %p"),
+            "action": action,
+            "actor": actor,
+            "details": details,
+            "amount": round(amount, 2)
         })
-        if len(self.activities) > 30:
-            self.activities.pop()
+        if len(self.audit_logs) > 50:
+            self.audit_logs.pop()
 
-    def park(self, vehicle_no, v_type):
-        vehicle_no = vehicle_no.strip().upper()
+    def reserve_slot(self, username, vehicle_no, v_type, target_slot_id=None):
+        ok, formatted_no, err_msg = validate_and_format_plate(vehicle_no)
+        if not ok:
+            return False, err_msg, None
+        vehicle_no = formatted_no
+
         if vehicle_no in self.active_vehicles:
-            return False, "Vehicle is already parked."
+            return False, f"Vehicle {vehicle_no} is already parked inside.", None
 
         heap = self.car_heap if v_type == "Car" else self.bike_heap
-        queue = self.car_queue if v_type == "Car" else self.bike_queue
+        slot = None
 
-        if not heap:
-            queue.append((vehicle_no, v_type))
-            return True, f"All {v_type} slots are full! Vehicle added to the waitlist."
+        if target_slot_id and target_slot_id in self.all_slots:
+            cand = self.all_slots[target_slot_id]
+            if cand.status != "AVAILABLE" or cand.slot_type != v_type:
+                return False, f"Slot {target_slot_id} is not available for {v_type}.", None
+            slot = cand
+            if slot in heap:
+                heap.remove(slot)
+                heapq.heapify(heap)
+        else:
+            if not heap:
+                return False, f"No {v_type} slots available.", None
+            slot = heapq.heappop(heap)
 
-        slot = heapq.heappop(heap)
-        slot.is_occupied = True
+        qr_token = f"QR-{uuid.uuid4().hex[:6].upper()}"
+        slot.status = "RESERVED"
+        slot.vehicle_no = vehicle_no
+        slot.reserved_by = username
+        slot.qr_code = qr_token
+        self.reservations[qr_token] = slot.slot_id
+
+        self.log_audit("RESERVE", username, f"{vehicle_no} reserved {slot.slot_id} ({qr_token})")
+        return True, f"Slot {slot.slot_id} reserved!", {
+            "qr_code": qr_token,
+            "slot_id": slot.slot_id,
+            "level": slot.level,
+            "vehicle_no": vehicle_no,
+            "vehicle_type": v_type
+        }
+
+    def check_in_reserved(self, qr_code, staff_name="Staff"):
+        qr_code = qr_code.strip().upper()
+        if qr_code not in self.reservations:
+            return False, "Invalid or already used QR Pass."
+
+        slot_id = self.reservations.pop(qr_code)
+        slot = self.all_slots[slot_id]
+        slot.status = "OCCUPIED"
+        slot.entry_time = time.time()
+        self.active_vehicles[slot.vehicle_no] = slot
+
+        self.log_audit("QR_CHECKIN", staff_name, f"{slot.vehicle_no} checked into {slot.slot_id}")
+        return True, f"Checked-in {slot.vehicle_no} at {slot.slot_id} ({slot.level})!"
+
+    def park_walkin(self, vehicle_no, v_type, target_slot_id=None, actor="Staff"):
+        ok, formatted_no, err_msg = validate_and_format_plate(vehicle_no)
+        if not ok:
+            return False, err_msg
+        vehicle_no = formatted_no
+
+        if vehicle_no in self.active_vehicles:
+            return False, f"Vehicle {vehicle_no} is already parked inside."
+
+        heap = self.car_heap if v_type == "Car" else self.bike_heap
+        if target_slot_id and target_slot_id in self.all_slots:
+            slot = self.all_slots[target_slot_id]
+            if slot.status != "AVAILABLE":
+                return False, f"Slot {target_slot_id} is currently {slot.status}."
+            if slot in heap:
+                heap.remove(slot)
+                heapq.heapify(heap)
+        else:
+            if not heap:
+                self.waitlist.append((vehicle_no, v_type))
+                return True, f"All {v_type} slots full. Added {vehicle_no} to waitlist."
+            slot = heapq.heappop(heap)
+
+        slot.status = "OCCUPIED"
         slot.vehicle_no = vehicle_no
         slot.entry_time = time.time()
         self.active_vehicles[vehicle_no] = slot
-        self.log_activity("PARK", vehicle_no, v_type, slot.slot_id)
-        return True, f"{v_type} {vehicle_no} assigned to Slot #{slot.slot_id} ({slot.distance}m)."
 
-    def vacate(self, vehicle_no):
-        vehicle_no = vehicle_no.strip().upper()
+        self.log_audit("PARK", actor, f"{vehicle_no} parked at {slot.slot_id}")
+        return True, f"{v_type} {vehicle_no} assigned to {slot.slot_id} ({slot.level}, {slot.distance}m)."
+
+    def vacate(self, vehicle_no, actor="Staff", test_minutes=None):
+        if not vehicle_no:
+            return None
+        ok, formatted_no, _ = validate_and_format_plate(vehicle_no)
+        if ok and formatted_no in self.active_vehicles:
+            vehicle_no = formatted_no
+        else:
+            vehicle_no = vehicle_no.strip().upper()
+
         if vehicle_no not in self.active_vehicles:
             return None
 
         slot = self.active_vehicles.pop(vehicle_no)
-        current_time = time.time()
-        duration_sec = max(1, int(current_time - slot.entry_time))
-        duration_min = max(1, int(duration_sec // 60))
+        now = time.time()
+        entry_t = slot.entry_time if slot.entry_time else now
 
-        # Simple Logical Billing:
-        # Base Minimum Charge (First hour): Car = ₹30.00, Bike = ₹15.00
-        # Additional time post 1 hour: + ₹0.50/min (Car), + ₹0.25/min (Bike)
-        if slot.slot_type == "Car":
-            base_rate = 30.0
-            per_min = 0.50
+        # Real elapsed calculation OR simulated minutes if provided for testing
+        if test_minutes and int(test_minutes) > 0:
+            elapsed_min = int(test_minutes)
+            elapsed_sec = elapsed_min * 60
         else:
-            base_rate = 15.0
-            per_min = 0.25
+            elapsed_sec = max(1, int(now - entry_t))
+            elapsed_min = max(1, round(elapsed_sec / 60))
 
-        if duration_sec < 60:
-            bill = base_rate
-            duration_text = f"{duration_sec} sec(s)"
-        elif duration_min <= 60:
-            bill = base_rate
-            duration_text = f"{duration_min} min(s)"
-        else:
-            extra_mins = duration_min - 60
-            bill = base_rate + (extra_mins * per_min)
-            hrs = duration_min // 60
-            mins = duration_min % 60
-            duration_text = f"{hrs} hr {mins} min(s)"
-
-        bill = round(bill, 2)
+        # Fair Per-Minute Billing: Car ₹0.50/min, Bike ₹0.25/min
+        rate_per_min = 0.50 if slot.slot_type == "Car" else 0.25
+        bill = round(elapsed_min * rate_per_min, 2)
         self.total_revenue = round(self.total_revenue + bill, 2)
 
         receipt = {
             "vehicle_no": vehicle_no,
             "slot_id": slot.slot_id,
+            "level": slot.level,
             "slot_type": slot.slot_type,
-            "duration_str": duration_text,
-            "duration_hours": round(max(0.1, duration_sec / 3600), 2),
-            "duration_sec": duration_sec,
-            "rate": base_rate,
+            "duration_min": elapsed_min,
+            "duration_str": f"{elapsed_min} min(s)" if (elapsed_sec >= 60 or test_minutes) else f"{elapsed_sec} sec(s) (1 min billed)",
+            "rate_per_min": rate_per_min,
             "total_bill": bill,
-            "entry_time": time.strftime("%H:%M:%S", time.localtime(slot.entry_time)),
-            "exit_time": time.strftime("%H:%M:%S", time.localtime(current_time))
+            "entry_time": time.strftime("%I:%M:%S %p", time.localtime(entry_t)),
+            "exit_time": time.strftime("%I:%M:%S %p", time.localtime(now))
         }
 
-        self.log_activity("EXIT", vehicle_no, slot.slot_type, slot.slot_id, bill)
+        self.log_audit("EXIT_BILL", actor, f"{vehicle_no} exited {slot.slot_id} ({elapsed_min}m)", bill)
 
-        slot.is_occupied = False
+        # Reset slot & return to Min-Heap
+        slot.status = "AVAILABLE"
         slot.vehicle_no = None
         slot.entry_time = None
+        slot.reserved_by = None
+        slot.qr_code = None
 
         heap = self.car_heap if slot.slot_type == "Car" else self.bike_heap
         heapq.heappush(heap, slot)
 
-        queue = self.car_queue if slot.slot_type == "Car" else self.bike_queue
-        if queue:
-            next_v, next_t = queue.popleft()
-            self.park(next_v, next_t)
-
         return receipt
 
-      
-        
-
     def get_status(self):
+        now = time.time()
+        slots_data = []
+        for s in self.all_slots.values():
+            live_min = 0
+            if s.status == "OCCUPIED" and s.entry_time:
+                live_min = max(1, round((now - s.entry_time) / 60))
+            slots_data.append({
+                "slot_id": s.slot_id,
+                "level": s.level,
+                "distance": s.distance,
+                "type": s.slot_type,
+                "status": s.status,
+                "vehicle_no": s.vehicle_no,
+                "qr_code": s.qr_code,
+                "entry_time_str": time.strftime("%I:%M:%S %p", time.localtime(s.entry_time)) if s.entry_time else None,
+                "live_minutes": live_min
+            })
+
+        avail = sum(1 for s in self.all_slots.values() if s.status == "AVAILABLE")
+        resv = sum(1 for s in self.all_slots.values() if s.status == "RESERVED")
+        occ = sum(1 for s in self.all_slots.values() if s.status == "OCCUPIED")
+
         return {
+            "server_time": time.strftime("%I:%M:%S %p"),
             "total": len(self.all_slots),
-            "available": len(self.car_heap) + len(self.bike_heap),
-            "occupied": len(self.active_vehicles),
-            "waiting_count": len(self.car_queue) + len(self.bike_queue),
+            "available": avail,
+            "reserved": resv,
+            "occupied": occ,
             "total_revenue": self.total_revenue,
-            "slots": [
-                {
-                    "slot_id": s.slot_id,
-                    "distance": s.distance,
-                    "type": s.slot_type,
-                    "is_occupied": s.is_occupied,
-                    "vehicle_no": s.vehicle_no,
-                    "entry_time": s.entry_time,
-                    "entry_time_str": time.strftime("%H:%M:%S", time.localtime(s.entry_time)) if s.entry_time else None
-                }
-                for s in self.all_slots.values()
-            ],
-            "waiting": [f"{v[0]} ({v[1]})" for v in list(self.car_queue) + list(self.bike_queue)],
-            "activities": getattr(self, "activities", [])
+            "slots": slots_data,
+            "audit_logs": self.audit_logs
         }
 
-parking = ParkingLotDSA(car_count=4, bike_count=4)
-ADMIN_USERS = {
-    os.getenv("ADMIN_USERNAME", "admin"): os.getenv("ADMIN_PASSWORD", "admin123"),
-    os.getenv("OPERATOR_USERNAME", "operator"): os.getenv("OPERATOR_PASSWORD", "park2026")
-}
-
-class ParkingAIAssistant:
-    def __init__(self, parking_lot):
-        self.parking = parking_lot
-
-    def process_query(self, text):
-        text = text.lower().strip()
-
-        if any(w in text for w in ["status", "free", "available", "empty", "space", "slots", "count"]):
-            stats = self.parking.get_status()
-            car_free = sum(1 for s in stats['slots'] if s['type'] == 'Car' and not s['is_occupied'])
-            bike_free = sum(1 for s in stats['slots'] if s['type'] == 'Bike' and not s['is_occupied'])
-            return {
-                "reply": f"🤖 Status Report: {stats['occupied']} spots occupied. {stats['available']} spots available ({car_free} Cars, {bike_free} Bikes). Waiting list: {stats['waiting_count']}.",
-                "action": "refresh"
-            }
-
-        if text in ["hi", "hello", "hey", "help", "hii", "namaste"]:
-            return {
-                "reply": "Hello! I am your Parking AI Assistant. You can tell me:\n- 'Park car DL-01-AB-1234'\n- 'Checkout DL-01-AB-1234'\n- 'How many free spots?'\n- 'Show total revenue'",
-                "action": "none"
-            }
-
-        if "park" in text or "entry" in text or "assign" in text:
-            v_type = "Bike" if "bike" in text or "motorcycle" in text else "Car"
-            match = re.search(r'([a-z]{2}[-\s]?[0-9]{1,2}[-\s]?[a-z]{0,3}[-\s]?[0-9]{3,4})', text)
-            if match:
-                plate = match.group(0).replace(" ", "-").upper()
-                success, msg = self.parking.park(plate, v_type)
-                return {"reply": f"🤖 {msg}", "action": "park" if success else "none"}
-            return {"reply": "Please specify a license plate number (e.g., 'Park car DL-01-1234').", "action": "none"}
-
-        if "vacate" in text or "exit" in text or "checkout" in text or "bill" in text:
-            match = re.search(r'([a-z]{2}[-\s]?[0-9]{1,2}[-\s]?[a-z]{0,3}[-\s]?[0-9]{3,4})', text)
-            if match:
-                plate = match.group(0).replace(" ", "-").upper()
-                receipt = self.parking.vacate(plate)
-                if receipt:
-                    return {
-                        "reply": f"🤖 {plate} checked out from Slot {receipt['slot_id']}. Total Bill: ₹{receipt['total_bill']}",
-                        "action": "vacate",
-                        "receipt": receipt
-                    }
-                return {"reply": f"🤖 Vehicle {plate} was not found in the parking lot.", "action": "none"}
-            return {"reply": "Please specify the license plate for checkout (e.g., 'Checkout DL-01-1234').", "action": "none"}
-
-        if "revenue" in text or "earning" in text or "collection" in text:
-            stats = self.parking.get_status()
-            return {"reply": f"🤖 Total revenue collected: ₹{stats['total_revenue']:.2f}", "action": "none"}
-
-        return {"reply": "Command not recognized. Try: 'available spots', 'park car DL-01-1234', or 'checkout DL-01-1234'.", "action": "none"}
-
+parking = MultiLevelParkingSystem()
 ai_bot = ParkingAIAssistant(parking)
+
+@app.route('/')
+def index():
+    login_path = os.path.join(FRONTEND_DIR, "login.html")
+    if os.path.exists(login_path):
+        return send_from_directory(FRONTEND_DIR, "login.html")
+    return jsonify({
+        "status": "online",
+        "message": "Smart Parking Management System API is live!",
+        "version": "2.0"
+    })
+
+@app.route('/api')
+@app.route('/api/test')
+def api_health():
+    return jsonify({
+        "status": "online",
+        "message": "Smart Parking Management System API is running smoothly!",
+        "endpoints": {
+            "status": "/api/status",
+            "users": "/api/users",
+            "login": "/api/login",
+            "register": "/api/register",
+            "reserve": "/api/reserve",
+            "park": "/api/park",
+            "vacate": "/api/vacate"
+        }
+    })
+
+@app.route('/api/register', methods=['POST'])
+def register():
+    data = request.get_json() or {}
+    u = data.get('username', '').strip()
+    p = data.get('password', '').strip()
+    role = data.get('role', 'User').strip()
+
+    if len(u) < 3 or len(p) < 4:
+        return jsonify({'success': False, 'message': 'Username (3+ chars) & Password (4+ chars) required'}), 400
+
+    users = load_users()
+    if u in users:
+        return jsonify({'success': False, 'message': 'Username already taken! Choose another.'}), 400
+
+    users[u] = {"password": p, "role": role, "created_at": time.strftime("%Y-%m-%d %H:%M:%S")}
+    save_users(users)
+    parking.log_audit("REGISTER", u, f"Created {role} account")
+    return jsonify({'success': True, 'message': f'{role} account "{u}" created! Please Sign In.'})
 
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.get_json() or {}
     u = data.get("username", "").strip()
     p = data.get("password", "").strip()
-    if u in ADMIN_USERS and ADMIN_USERS[u] == p:
-        return jsonify({"success": True, "user": u})
+    users = load_users()
+    if u in users and users[u]["password"] == p:
+        return jsonify({"success": True, "user": u, "role": users[u]["role"]})
     return jsonify({"success": False, "message": "Invalid username or password"}), 401
-@app.route('/api/register', methods=['POST'])
-def register():
-  data = request.get_json() or {}
-  u = data.get('username', '').strip()
-  p = data.get('password', '').strip()
 
-  if not u or not p:
-    return (
-        jsonify(
-            {'success': False, 'message': 'Username and password required'}
-        ),
-        400,
-    )
-
-  if u in ADMIN_USERS:
-    return (
-        jsonify({'success': False, 'message': 'Username already exists!'}),
-        400,
-    )
-
-  ADMIN_USERS[u] = p
-  return jsonify(
-      {'success': True, 'message': 'Account created successfully! Please login.'}
-  )
+@app.route('/api/users', methods=['GET'])
+def list_users():
+    users = load_users()
+    out = [{"username": k, "role": v["role"], "created_at": v.get("created_at", "-")} for k, v in users.items()]
+    return jsonify({"success": True, "users": out})
 
 @app.route('/api/status', methods=['GET'])
 def status():
     return jsonify(parking.get_status())
 
+@app.route('/api/reserve', methods=['POST'])
+def reserve():
+    data = request.get_json() or {}
+    ok, msg, ticket = parking.reserve_slot(
+        data.get("username", "User"),
+        data.get("vehicle_no", ""),
+        data.get("vehicle_type", "Car"),
+        data.get("slot_id")
+    )
+    return jsonify({"success": ok, "message": msg, "ticket": ticket})
+
+@app.route('/api/checkin-qr', methods=['POST'])
+def checkin_qr():
+    data = request.get_json() or {}
+    ok, msg = parking.check_in_reserved(data.get("qr_code", ""), data.get("staff", "Staff"))
+    return jsonify({"success": ok, "message": msg})
+
 @app.route('/api/park', methods=['POST'])
 def park():
     data = request.get_json() or {}
-    v_no = data.get("vehicle_no")
-    v_type = data.get("vehicle_type", "Car")
-    if not v_no:
-        return jsonify({"success": False, "message": "Vehicle plate number required"}), 400
-    success, msg = parking.park(v_no, v_type)
-    return jsonify({"success": success, "message": msg})
+    ok, msg = parking.park_walkin(
+        data.get("vehicle_no", ""),
+        data.get("vehicle_type", "Car"),
+        data.get("slot_id"),
+        data.get("actor", "Staff")
+    )
+    return jsonify({"success": ok, "message": msg})
 
 @app.route('/api/vacate', methods=['POST'])
 def vacate():
     data = request.get_json() or {}
-    v_no = data.get("vehicle_no")
-    if not v_no:
-        return jsonify({"success": False, "message": "Vehicle plate number required"}), 400
-    receipt = parking.vacate(v_no)
+    receipt = parking.vacate(
+        data.get("vehicle_no", ""),
+        data.get("actor", "Staff"),
+        data.get("test_minutes")
+    )
     if not receipt:
-        return jsonify({"success": False, "message": "Vehicle not found in parking lot"}), 404
+        return jsonify({"success": False, "message": "Vehicle not found in active parking"}), 404
     return jsonify({"success": True, "receipt": receipt})
 
 @app.route('/api/ai-chat', methods=['POST'])
 def ai_chat():
     data = request.get_json() or {}
-    user_msg = data.get("message", "").strip()
-    if not user_msg:
-        return jsonify({"reply": "Please enter a message."}), 400
-    return jsonify(ai_bot.process_query(user_msg))
+    msg = data.get("message", "").strip()
+    if not msg:
+        return jsonify({"reply": "Please ask a question."}), 400
+    return jsonify(ai_bot.process_query(msg))
+
+@app.route('/<path:path>')
+def serve_static(path):
+    target_file = os.path.join(FRONTEND_DIR, path)
+    if os.path.exists(target_file) and not os.path.isdir(target_file):
+        return send_from_directory(FRONTEND_DIR, path)
+    return jsonify({"error": "Not Found", "message": f"Resource /{path} not found"}), 404
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
-    
