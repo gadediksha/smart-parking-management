@@ -56,7 +56,18 @@ def validate_and_format_plate(plate_str):
 
 FRONTEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "frontend"))
 
-USERS_FILE = os.path.join(os.path.dirname(__file__), "users.json")
+if os.environ.get("VERCEL"):
+    import shutil
+    TMP_USERS = "/tmp/users.json"
+    SRC_USERS = os.path.join(os.path.dirname(__file__), "users.json")
+    if not os.path.exists(TMP_USERS) and os.path.exists(SRC_USERS):
+        try:
+            shutil.copyfile(SRC_USERS, TMP_USERS)
+        except Exception:
+            pass
+    USERS_FILE = TMP_USERS
+else:
+    USERS_FILE = os.path.join(os.path.dirname(__file__), "users.json")
 
 def load_users():
     if not os.path.exists(USERS_FILE):

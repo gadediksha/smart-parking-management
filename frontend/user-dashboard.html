@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Driver Parking Map - YuktiTech</title>
+    <link rel="stylesheet" href="style.css?v=3">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+    <header class="top-nav">
+        <div class="brand-badge">
+            <div class="brand-icon">P</div>
+            <div>
+                <div class="brand-title">YuktiTech <span>Driver</span></div>
+                <small style="color:#10b981; font-weight:700;">● LIVE CLOCK: <span id="liveClock"></span></small>
+            </div>
+        </div>
+        <div class="nav-actions">
+            <button class="theme-btn" onclick="toggleTheme()">🌓 Theme</button>
+            <div class="user-chip"><i class="fa-regular fa-user"></i> <span id="displayUser"></span></div>
+            <button class="btn btn-red" onclick="localStorage.clear(); sessionStorage.clear(); window.location.replace('login.html?v=' + Date.now());">Logout</button>
+        </div>
+    </header>
+
+    <main class="page-wrap">
+        <!-- Facility Image Header (Auto-switching) -->
+        <div id="facilityCover" style="height:130px; border-radius:16px; margin-bottom:20px; background-size:cover; background-position:center; position:relative; overflow:hidden; border:1px solid var(--card-border); transition:background-image 0.6s ease-in-out;">
+            <div style="position:absolute; inset:0; background:linear-gradient(90deg, rgba(9,13,22,0.88), rgba(9,13,22,0.35)); padding:20px; display:flex; flex-direction:column; justify-content:center; color:#fff;">
+                <h2 id="coverTitle">Bareilly Smart Plaza (Civil Lines, UP-25)</h2>
+                <p style="font-size:0.85rem; color:#cbd5e1; margin-top:4px;">Fair Billing Active: Car ₹0.50/min • Bike ₹0.25/min</p>
+            </div>
+        </div>
+
+        <!-- Active QR Pass Box -->
+        <div class="card" id="qrCard" style="display:none; border:2px solid #f59e0b;">
+            <h3><i class="fa-solid fa-qrcode" style="color:#f59e0b;"></i> Active Reservation QR Pass</h3>
+            <div style="display:flex; gap:20px; align-items:center; margin-top:12px; flex-wrap:wrap;">
+                <img id="qrImg" src="" alt="QR" style="width:110px; height:110px; background:#fff; padding:6px; border-radius:8px;">
+                <div>
+                    <h2 id="qrText" style="color:#f59e0b;"></h2>
+                    <p id="qrDetails" style="color:var(--text-sub); margin-top:4px;"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Live GPS Parking Facility Navigation Map -->
+        <div class="card" style="padding:18px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+                <div>
+                    <h2><i class="fa-solid fa-map-location-dot" style="color:var(--accent);"></i> Live Facility GPS Navigation Map (Bareilly)</h2>
+                    <p style="font-size:0.85rem; color:var(--text-sub);">YuktiTech Smart Parking Plaza • Civil Lines / Ayub Khan Chauraha, Bareilly (UP-25) • 24x7 Boom Barrier & Valet</p>
+                </div>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <span id="liveAvailBadge" class="gate-pill" style="font-size:0.85rem;"><i class="fa-solid fa-circle-check"></i> Live Spots Available</span>
+                    <a href="https://maps.google.com/?q=28.3670,79.4304" target="_blank" class="btn btn-amber" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+                        <i class="fa-solid fa-diamond-turn-right"></i> Open in Google Maps
+                    </a>
+                </div>
+            </div>
+            <div id="facilityGpsMap" style="height:250px; width:100%; border-radius:12px; border:1.5px solid var(--card-border); z-index:10;"></div>
+        </div>
+
+        <!-- Interactive Multi-Level Blueprint Map -->
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+                <div>
+                    <h2>Interactive Multi-Level Parking Map</h2>
+                    <p style="font-size:0.85rem; color:var(--text-sub);">Click a green slot to Reserve (QR) or Park directly</p>
+                </div>
+                <select id="levelFilter" style="width:190px; margin:0;" onchange="loadMap()">
+                    <option value="L1">Level 1 (Ground Floor)</option>
+                    <option value="L2">Level 2 (Upper Deck)</option>
+                </select>
+            </div>
+
+            <div class="facility-plan">
+                <div class="gateway-banner">
+                    <div class="gate-pill"><i class="fa-solid fa-arrow-down"></i> MAIN ENTRANCE (GATE 1)</div>
+                    <div class="exit-pill"><i class="fa-solid fa-arrow-up"></i> EXIT BOOTH</div>
+                </div>
+
+                <p style="color:#94a3b8; font-size:0.8rem; font-weight:700; margin-bottom:10px;">ZONE A: CAR SLOTS (₹0.50 / min)</p>
+                <div class="grid-4" id="carSlotsRow"></div>
+
+                <div class="driveway">◀ ◀ ◀ DRIVEWAY & VEHICLE PASSAGEWAY ▶ ▶ ▶</div>
+
+                <p style="color:#94a3b8; font-size:0.8rem; font-weight:700; margin-bottom:10px;">ZONE B: BIKE SLOTS (₹0.25 / min)</p>
+                <div class="grid-4" id="bikeSlotsRow"></div>
+            </div>
+        </div>
+    </main>
+
+    <script src="script.js"></script>
+    <script>
+        const { user } = checkAuth("User");
+        document.getElementById("displayUser").textContent = user;
+        startLiveClock("liveClock");
+
+        // Auto-switch facility cover picture every 4 seconds
+        let coverIdx = 0;
+        function renderCover() {
+            const item = PARKING_VISUALS[coverIdx];
+            const coverEl = document.getElementById("facilityCover");
+            const titleEl = document.getElementById("coverTitle");
+            if (coverEl && item) {
+                coverEl.style.backgroundImage = `url('${item.url}')`;
+            }
+            if (titleEl && item) {
+                titleEl.textContent = item.title;
+            }
+        }
+        function autoSwitchCover() {
+            coverIdx = (coverIdx + 1) % PARKING_VISUALS.length;
+            renderCover();
+        }
+        renderCover();
+        setInterval(autoSwitchCover, 4000);
+
+        let gpsMap = null;
+        let gpsMarker = null;
+
+        function initGpsMap(availCount = 16, totalCount = 16) {
+            const mapEl = document.getElementById("facilityGpsMap");
+            if (!mapEl || typeof L === "undefined") return;
+
+            const lat = 28.3670;
+            const lng = 79.4304;
+
+            if (!gpsMap) {
+                gpsMap = L.map('facilityGpsMap').setView([lat, lng], 15);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(gpsMap);
+
+                gpsMarker = L.marker([lat, lng]).addTo(gpsMap);
+            }
+
+            if (gpsMarker) {
+                gpsMarker.bindPopup(`
+                    <div style="font-family:sans-serif; text-align:center; padding:6px; min-width:190px;">
+                        <strong style="color:#2563eb; font-size:1.05rem;">YuktiTech Parking Plaza</strong><br>
+                        <span style="color:#10b981; font-weight:800; font-size:0.95rem;">● ${availCount} / ${totalCount} Slots Available</span><br>
+                        <small style="color:#64748b;">Civil Lines, Bareilly, UP (UP-25)</small><br>
+                        <a href="https://maps.google.com/?q=${lat},${lng}" target="_blank" style="display:inline-block; margin-top:6px; padding:4px 10px; background:#2563eb; color:#fff; border-radius:6px; text-decoration:none; font-size:0.8rem; font-weight:700;">Open Directions</a>
+                    </div>
+                `);
+            }
+        }
+
+        async function loadMap() {
+            const res = await fetch(API_URL + "/api/status");
+            const data = await res.json();
+            const lvl = document.getElementById("levelFilter").value;
+
+            const availCount = data.available !== undefined ? data.available : 16;
+            const totalCount = data.total || 16;
+            const badge = document.getElementById("liveAvailBadge");
+            if (badge) {
+                badge.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${availCount} / ${totalCount} Free Spots`;
+            }
+            initGpsMap(availCount, totalCount);
+
+            const carRow = document.getElementById("carSlotsRow");
+            const bikeRow = document.getElementById("bikeSlotsRow");
+            carRow.innerHTML = "";
+            bikeRow.innerHTML = "";
+
+            data.slots.filter(s => s.level === lvl).forEach(s => {
+                const box = document.createElement("div");
+                box.className = `slot-box ${s.status}`;
+                const icon = s.type === "Car" ? "fa-car" : "fa-motorcycle";
+                const color = s.status === "AVAILABLE" ? "#10b981" : (s.status === "RESERVED" ? "#f59e0b" : "#ef4444");
+
+                box.innerHTML = `
+                    <div style="font-size:1.6rem; color:${color}; margin-bottom:6px;"><i class="fa-solid ${icon}"></i></div>
+                    <div style="font-weight:800; font-size:1.05rem;">${s.slot_id}</div>
+                    <div class="slot-dist" style="font-size:0.75rem; margin:3px 0;">${s.distance}m from gate</div>
+                    <div class="slot-status" style="font-size:0.8rem; font-weight:800; color:${color};">${s.status}</div>
+                    <div class="slot-desc" style="font-size:0.78rem; font-weight:700; margin-top:3px;">
+                        ${s.vehicle_no ? s.vehicle_no + (s.entry_time_str ? ' • ' + s.entry_time_str : '') : 'Click to Book'}
+                    </div>
+                `;
+
+                if (s.status === "AVAILABLE") {
+                    box.onclick = () => handleSlotClick(s.slot_id, s.type);
+                } else if (s.status === "OCCUPIED") {
+                    box.onclick = () => vacateOwnVehicle(s.vehicle_no);
+                }
+
+                if (s.type === "Car") carRow.appendChild(box);
+                else bikeRow.appendChild(box);
+            });
+        }
+
+        async function handleSlotClick(slotId, type) {
+            const vNo = prompt(`Enter Vehicle Plate Number for ${slotId} (${type})\n(Example: UP-25-AB-1234, DL-01-AB-1234):`);
+            if (!vNo) return;
+
+            const check = validateVehiclePlate(vNo);
+            if (!check.valid) {
+                return alert("⚠️ " + check.message);
+            }
+            const formattedPlate = check.formatted;
+
+            const isReserve = confirm(`Vehicle: ${formattedPlate}\n\nClick OK to Reserve with QR Pass (for Gate Check-In)\nOR click Cancel to Park Immediately right now.`);
+            const endpoint = isReserve ? "/api/reserve" : "/api/park";
+
+            const res = await fetch(API_URL + endpoint, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username: user, actor: user, vehicle_no: formattedPlate, vehicle_type: type, slot_id: slotId })
+            });
+            const data = await res.json();
+            if (!data.success) return alert(data.message);
+
+            if (isReserve && data.ticket) {
+                document.getElementById("qrCard").style.display = "block";
+                document.getElementById("qrText").textContent = data.ticket.qr_code;
+                document.getElementById("qrDetails").textContent = `Slot: ${data.ticket.slot_id} (${data.ticket.level}) • Vehicle: ${data.ticket.vehicle_no}`;
+                document.getElementById("qrImg").src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${data.ticket.qr_code}`;
+            } else {
+                alert(data.message);
+            }
+            loadMap();
+        }
+
+        async function vacateOwnVehicle(vNo) {
+            if (!confirm(`Checkout & generate fair bill for ${vNo}?`)) return;
+            const res = await fetch(API_URL + "/api/vacate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ vehicle_no: vNo, actor: user })
+            });
+            const data = await res.json();
+            if (data.success) {
+                const r = data.receipt;
+                alert(`FAIR PARKING RECEIPT\nVehicle: ${r.vehicle_no}\nSlot: ${r.slot_id}\nEntry: ${r.entry_time}\nExit: ${r.exit_time}\nDuration: ${r.duration_str}\nRate: ₹${r.rate_per_min}/min\nTotal Bill: ₹${r.total_bill}`);
+                loadMap();
+            }
+        }
+
+        loadMap();
+        setInterval(loadMap, 3500);
+    </script>
+</body>
+</html>

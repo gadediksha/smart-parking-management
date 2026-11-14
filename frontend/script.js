@@ -1,4 +1,6 @@
-const API_URL = "http://127.0.0.1:5000";
+const API_URL = (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost")
+    ? (window.location.port === "5000" ? "" : "http://127.0.0.1:5000")
+    : "";
 
 const PARKING_VISUALS = [
     {
