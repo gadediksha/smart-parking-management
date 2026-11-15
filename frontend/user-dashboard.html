@@ -241,7 +241,11 @@
             const data = await res.json();
             if (data.success) {
                 const r = data.receipt;
-                alert(`FAIR PARKING RECEIPT\nVehicle: ${r.vehicle_no}\nSlot: ${r.slot_id}\nEntry: ${r.entry_time}\nExit: ${r.exit_time}\nDuration: ${r.duration_str}\nRate: ₹${r.rate_per_min}/min\nTotal Bill: ₹${r.total_bill}`);
+                let receiptMsg = `FAIR PARKING RECEIPT\nVehicle: ${r.vehicle_no}\nSlot: ${r.slot_id}\nEntry: ${r.entry_time}\nExit: ${r.exit_time}\nDuration: ${r.duration_str}\nRate: ₹${r.rate_per_min}/min\nTotal Bill: ₹${r.total_bill}`;
+                if (r.waitlist_update) {
+                    receiptMsg += `\n\n🎉 QUEUE AUTO-ASSIGN:\n${r.waitlist_update}`;
+                }
+                alert(receiptMsg);
                 loadMap();
             }
         }

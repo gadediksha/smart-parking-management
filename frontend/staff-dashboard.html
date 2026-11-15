@@ -105,6 +105,16 @@
                             </button>
                         </div>
                     </div>
+
+                    <!-- Waiting Queue Status -->
+                    <div id="waitlistCard" class="card" style="margin-top:16px; padding:14px; border:1px solid var(--accent); background:rgba(37, 99, 235, 0.05); display:none;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                            <strong style="color:var(--accent); font-size:0.9rem;"><i class="fa-solid fa-clock-rotate-left"></i> Waiting Queue (FIFO)</strong>
+                            <span id="waitlistCountBadge" style="background:var(--accent); color:#fff; font-size:0.75rem; padding:2px 8px; border-radius:12px; font-weight:700;">0</span>
+                        </div>
+                        <div id="waitlistItems" style="font-size:0.8rem; color:var(--text-main);"></div>
+                        <small style="color:var(--text-sub); display:block; margin-top:8px; font-size:0.72rem;">⚡ Jese hi koi vehicle exit hoga, queue ki agli vehicle ko slot automatically assign ho jayega.</small>
+                    </div>
                 </div>
 
                 <!-- Operator Shortcuts & Info -->
@@ -166,6 +176,16 @@
                             <p style="color:var(--text-sub); font-size:0.82rem; font-weight:700; margin-bottom:10px;">ZONE B: BIKE SLOTS (₹0.25 / min)</p>
                             <div class="grid-4" id="staffBikeSlots"></div>
                         </div>
+                    </div>
+
+                    <!-- Waiting Queue Status -->
+                    <div id="waitlistCard" class="card" style="margin-top:16px; padding:14px; border:1px solid var(--accent); background:rgba(37, 99, 235, 0.05); display:none;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                            <strong style="color:var(--accent); font-size:0.9rem;"><i class="fa-solid fa-clock-rotate-left"></i> Waiting Queue (FIFO)</strong>
+                            <span id="waitlistCountBadge" style="background:var(--accent); color:#fff; font-size:0.75rem; padding:2px 8px; border-radius:12px; font-weight:700;">0</span>
+                        </div>
+                        <div id="waitlistItems" style="font-size:0.8rem; color:var(--text-main);"></div>
+                        <small style="color:var(--text-sub); display:block; margin-top:8px; font-size:0.72rem;">⚡ Jese hi koi vehicle exit hoga, queue ki agli vehicle ko slot automatically assign ho jayega.</small>
                     </div>
                 </div>
 
@@ -332,7 +352,11 @@
             const data = await res.json();
             if (!data.success) return alert(data.message);
             const r = data.receipt;
-            alert(`PARKING RECEIPT\nVehicle: ${r.vehicle_no}\nSlot: ${r.slot_id} (${r.level})\nEntry Time: ${r.entry_time}\nExit Time: ${r.exit_time}\nDuration: ${r.duration_str}\nRate: ₹${r.rate_per_min}/min\nTotal Bill: ₹${r.total_bill}`);
+            let receiptMsg = `PARKING RECEIPT\nVehicle: ${r.vehicle_no}\nSlot: ${r.slot_id} (${r.level})\nEntry Time: ${r.entry_time}\nExit Time: ${r.exit_time}\nDuration: ${r.duration_str}\nRate: ₹${r.rate_per_min}/min\nTotal Bill: ₹${r.total_bill}`;
+            if (r.waitlist_update) {
+                receiptMsg += `\n\n🎉 WAITING QUEUE AUTO-ASSIGN:\n${r.waitlist_update}`;
+            }
+            alert(receiptMsg);
             document.getElementById("exitPlate").value = "";
             document.getElementById("testMins").value = "";
             refreshSlots();
@@ -343,6 +367,29 @@
                 const res = await fetch(API_URL + "/api/status");
                 const data = await res.json();
                 cachedSlots = data.slots || [];
+
+                const waitlist = data.waitlist || [];
+                const waitCard = document.getElementById("waitlistCard");
+                const waitBadge = document.getElementById("waitlistCountBadge");
+                const waitItems = document.getElementById("waitlistItems");
+                if (waitCard && waitBadge && waitItems) {
+                    if (waitlist.length > 0) {
+                        waitCard.style.display = "block";
+                        waitBadge.textContent = waitlist.length;
+                        waitItems.innerHTML = waitlist.map((w, i) => {
+                            const plate = typeof w === 'object' ? w.vehicle_no : w[0];
+                            const type = typeof w === 'object' ? w.vehicle_type : (w[1] || 'Car');
+                            const time = typeof w === 'object' ? w.added_at : '';
+                            return `<div style="padding:4px 0; border-bottom:1px dashed var(--card-border); display:flex; justify-content:space-between; align-items:center;">
+                                <span>#${i + 1} <strong>${plate}</strong> (${type})</span>
+                                <span style="color:var(--text-sub); font-size:0.72rem;">${time ? '⏳ ' + time : ''}</span>
+                            </div>`;
+                        }).join('');
+                    } else {
+                        waitCard.style.display = "none";
+                    }
+                }
+
                 renderStaffMap();
                 initStaffGpsMap();
             } catch (err) {

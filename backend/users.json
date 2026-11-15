@@ -68,5 +68,15 @@
     "password": "Disha",
     "role": "Admin",
     "created_at": "2026-11-15 15:12:08"
+  },
+  "user": {
+    "password": "11232",
+    "role": "User",
+    "created_at": "2026-11-15 16:50:56"
+  },
+  "staff": {
+    "password": "1234",
+    "role": "Staff",
+    "created_at": "2026-11-15 16:51:50"
   }
 }

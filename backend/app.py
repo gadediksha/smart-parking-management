@@ -221,6 +221,7 @@ class MultiLevelParkingSystem:
                 "total_revenue": self.total_revenue,
                 "audit_logs": self.audit_logs,
                 "reservations": self.reservations,
+                "waitlist": list(self.waitlist),
                 "slots": {
                     s_id: {
                         "status": s.status,
@@ -254,6 +255,7 @@ class MultiLevelParkingSystem:
             self.total_revenue = state.get("total_revenue", 0.0)
             self.audit_logs = state.get("audit_logs", [])
             self.reservations = state.get("reservations", {})
+            self.waitlist = deque(state.get("waitlist", []))
 
             slots_saved = state.get("slots", {})
             self.active_vehicles = {}
@@ -388,8 +390,29 @@ class MultiLevelParkingSystem:
                 heapq.heapify(heap)
         else:
             if not heap:
-                self.waitlist.append((vehicle_no, v_type))
-                return True, f"All {v_type} slots full. Added {vehicle_no} to waitlist.", None
+                now_ts = time.time()
+                time_str = format_ist_time(now_ts)
+                for w in self.waitlist:
+                    w_num = w.get("vehicle_no") if isinstance(w, dict) else w[0]
+                    if w_num == vehicle_no:
+                        return False, f"Vehicle {vehicle_no} is already in the Waiting Queue.", None
+
+                wait_entry = {
+                    "vehicle_no": vehicle_no,
+                    "vehicle_type": v_type,
+                    "added_at": time_str,
+                    "timestamp": now_ts
+                }
+                self.waitlist.append(wait_entry)
+                self.log_audit("WAITLIST", actor, f"{vehicle_no} ({v_type}) placed in Waiting Queue (#{len(self.waitlist)})")
+                self.save_state()
+                return True, f"All {v_type} slots are FULL! {vehicle_no} added to Waiting Queue (Position #{len(self.waitlist)}). It will automatically get assigned when any {v_type} departs.", {
+                    "waitlisted": True,
+                    "position": len(self.waitlist),
+                    "vehicle_no": vehicle_no,
+                    "vehicle_type": v_type,
+                    "added_at": time_str
+                }
             slot = heapq.heappop(heap)
 
         now_ts = time.time()
@@ -456,16 +479,43 @@ class MultiLevelParkingSystem:
 
         self.log_audit("EXIT_BILL", actor, f"{vehicle_no} exited {slot.slot_id} ({elapsed_min}m)", bill)
 
-        # Reset slot & return to Min-Heap
-        slot.status = "AVAILABLE"
-        slot.vehicle_no = None
-        slot.entry_time = None
-        slot.reserved_time = None
-        slot.reserved_by = None
-        slot.qr_code = None
+        # Check if any vehicle is waiting in FIFO queue for this slot type
+        wait_idx = -1
+        for idx, entry in enumerate(self.waitlist):
+            entry_type = entry.get("vehicle_type") if isinstance(entry, dict) else (entry[1] if len(entry) > 1 else None)
+            if entry_type == slot.slot_type:
+                wait_idx = idx
+                break
 
-        heap = self.car_heap if slot.slot_type == "Car" else self.bike_heap
-        heapq.heappush(heap, slot)
+        if wait_idx >= 0:
+            wait_entry = self.waitlist[wait_idx]
+            del self.waitlist[wait_idx]
+            w_plate = wait_entry.get("vehicle_no") if isinstance(wait_entry, dict) else wait_entry[0]
+
+            # Auto-assign this freed slot to the waiting vehicle!
+            now_ts = time.time()
+            time_str = format_ist_time(now_ts)
+            slot.status = "OCCUPIED"
+            slot.vehicle_no = w_plate
+            slot.entry_time = now_ts
+            slot.reserved_time = None
+            slot.reserved_by = None
+            slot.qr_code = None
+            self.active_vehicles[w_plate] = slot
+
+            self.log_audit("WAITLIST_AUTO_ASSIGN", "System", f"Slot {slot.slot_id} auto-assigned to waiting vehicle {w_plate} at {time_str}")
+            receipt["waitlist_update"] = f"Freed slot {slot.slot_id} ({slot.level}) automatically assigned to waiting vehicle {w_plate}!"
+        else:
+            # Reset slot & return to Min-Heap
+            slot.status = "AVAILABLE"
+            slot.vehicle_no = None
+            slot.entry_time = None
+            slot.reserved_time = None
+            slot.reserved_by = None
+            slot.qr_code = None
+
+            heap = self.car_heap if slot.slot_type == "Car" else self.bike_heap
+            heapq.heappush(heap, slot)
 
         self.save_state()
         return receipt
@@ -507,6 +557,8 @@ class MultiLevelParkingSystem:
             "available": avail,
             "reserved": resv,
             "occupied": occ,
+            "waitlist": list(self.waitlist),
+            "waitlist_count": len(self.waitlist),
             "total_revenue": round(self.total_revenue, 2),
             "slots": slots_data,
             "audit_logs": self.audit_logs

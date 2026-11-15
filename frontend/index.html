@@ -95,10 +95,11 @@
                 <!-- VIEW 1: BLUEPRINT FLOOR MAP VIEW (DEFAULT) -->
                 <div id="page-blueprint" class="admin-view active">
                     <!-- KPI Summary Cards -->
-                    <div class="grid-4" style="margin-bottom:18px;">
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:16px; margin-bottom:18px;">
                         <div class="card" style="margin-bottom:0;"><small style="color:var(--text-sub);">TOTAL CAPACITY</small><h2 id="kTotal">0</h2></div>
                         <div class="card" style="margin-bottom:0;"><small style="color:var(--text-sub);">AVAILABLE SLOTS</small><h2 id="kAvail" style="color:var(--green);">0</h2></div>
                         <div class="card" style="margin-bottom:0;"><small style="color:var(--text-sub);">RESERVED / OCCUPIED</small><h2 id="kBusy" style="color:var(--amber);">0</h2></div>
+                        <div class="card" style="margin-bottom:0;"><small style="color:var(--text-sub);">WAITING QUEUE (FIFO)</small><h2 id="kWait" style="color:#a855f7;">0</h2></div>
                         <div class="card" style="margin-bottom:0;"><small style="color:var(--text-sub);">TOTAL REVENUE</small><h2 id="kRev" style="color:var(--accent);">₹0.00</h2></div>
                     </div>
 
@@ -354,6 +355,7 @@
             document.getElementById("kTotal").textContent = data.total;
             document.getElementById("kAvail").textContent = data.available;
             document.getElementById("kBusy").textContent = `${data.reserved} Res / ${data.occupied} Occ`;
+            document.getElementById("kWait").textContent = data.waitlist_count || (data.waitlist ? data.waitlist.length : 0);
             document.getElementById("kRev").textContent = `₹${data.total_revenue.toFixed(2)}`;
 
             document.getElementById("usersList").innerHTML = (uData.users || []).map(u => `
