@@ -4,10 +4,34 @@ import os
 import json
 import uuid
 import re
+from datetime import datetime, timezone, timedelta
 from collections import deque
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 from ai_assistant import ParkingAIAssistant
+
+# Indian Standard Time (IST) UTC+5:30
+IST = timezone(timedelta(hours=5, minutes=30))
+
+def format_ist_time(epoch_time=None, fmt="%I:%M:%S %p"):
+    if epoch_time is None:
+        dt = datetime.now(IST)
+    else:
+        try:
+            dt = datetime.fromtimestamp(epoch_time, tz=IST)
+        except Exception:
+            dt = datetime.now(IST)
+    return dt.strftime(fmt)
+
+def format_ist_datetime(epoch_time=None, fmt="%Y-%m-%d %H:%M:%S"):
+    if epoch_time is None:
+        dt = datetime.now(IST)
+    else:
+        try:
+            dt = datetime.fromtimestamp(epoch_time, tz=IST)
+        except Exception:
+            dt = datetime.now(IST)
+    return dt.strftime(fmt)
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -159,6 +183,7 @@ class ParkingSlot:
         self.status = "AVAILABLE"   # AVAILABLE, RESERVED, OCCUPIED
         self.vehicle_no = None
         self.entry_time = None
+        self.reserved_time = None
         self.reserved_by = None
         self.qr_code = None
 
@@ -201,6 +226,7 @@ class MultiLevelParkingSystem:
                         "status": s.status,
                         "vehicle_no": s.vehicle_no,
                         "entry_time": s.entry_time,
+                        "reserved_time": getattr(s, "reserved_time", None),
                         "reserved_by": s.reserved_by,
                         "qr_code": s.qr_code
                     } for s_id, s in self.all_slots.items()
@@ -240,6 +266,7 @@ class MultiLevelParkingSystem:
                     s.status = saved_s.get("status", "AVAILABLE")
                     s.vehicle_no = saved_s.get("vehicle_no")
                     s.entry_time = saved_s.get("entry_time")
+                    s.reserved_time = saved_s.get("reserved_time")
                     s.reserved_by = saved_s.get("reserved_by")
                     s.qr_code = saved_s.get("qr_code")
 
@@ -257,7 +284,8 @@ class MultiLevelParkingSystem:
 
     def log_audit(self, action, actor, details, amount=0.0):
         self.audit_logs.insert(0, {
-            "time": time.strftime("%I:%M:%S %p"),
+            "time": format_ist_time(),
+            "timestamp": format_ist_datetime(),
             "action": action,
             "actor": actor,
             "details": details,
@@ -292,71 +320,94 @@ class MultiLevelParkingSystem:
                 return False, f"No {v_type} slots available.", None
             slot = heapq.heappop(heap)
 
+        now_ts = time.time()
+        time_str = format_ist_time(now_ts)
         qr_token = f"QR-{uuid.uuid4().hex[:6].upper()}"
+
         slot.status = "RESERVED"
         slot.vehicle_no = vehicle_no
         slot.reserved_by = username
         slot.qr_code = qr_token
+        slot.reserved_time = now_ts
+        slot.entry_time = now_ts
         self.reservations[qr_token] = slot.slot_id
 
-        self.log_audit("RESERVE", username, f"{vehicle_no} reserved {slot.slot_id} ({qr_token})")
+        self.log_audit("RESERVE", username, f"{vehicle_no} reserved {slot.slot_id} ({qr_token}) at {time_str}")
         self.save_state()
-        return True, f"Slot {slot.slot_id} reserved!", {
+        return True, f"Slot {slot.slot_id} reserved at {time_str}!", {
             "qr_code": qr_token,
             "slot_id": slot.slot_id,
             "level": slot.level,
             "vehicle_no": vehicle_no,
-            "vehicle_type": v_type
+            "vehicle_type": v_type,
+            "entry_time": now_ts,
+            "entry_time_str": time_str
         }
 
     def check_in_reserved(self, qr_code, staff_name="Staff"):
         self.load_state()
         qr_code = qr_code.strip().upper()
         if qr_code not in self.reservations:
-            return False, "Invalid or already used QR Pass."
+            return False, "Invalid or already used QR Pass.", None
 
         slot_id = self.reservations.pop(qr_code)
         slot = self.all_slots[slot_id]
+        now_ts = time.time()
+        time_str = format_ist_time(now_ts)
+
         slot.status = "OCCUPIED"
-        slot.entry_time = time.time()
+        slot.entry_time = now_ts
         self.active_vehicles[slot.vehicle_no] = slot
 
-        self.log_audit("QR_CHECKIN", staff_name, f"{slot.vehicle_no} checked into {slot.slot_id}")
+        self.log_audit("QR_CHECKIN", staff_name, f"{slot.vehicle_no} checked into {slot.slot_id} at {time_str}")
         self.save_state()
-        return True, f"Checked-in {slot.vehicle_no} at {slot.slot_id} ({slot.level})!"
+        return True, f"Checked-in {slot.vehicle_no} at {slot.slot_id} ({slot.level}) at {time_str}!", {
+            "slot_id": slot.slot_id,
+            "vehicle_no": slot.vehicle_no,
+            "entry_time": now_ts,
+            "entry_time_str": time_str
+        }
 
     def park_walkin(self, vehicle_no, v_type, target_slot_id=None, actor="Staff"):
         self.load_state()
         ok, formatted_no, err_msg = validate_and_format_plate(vehicle_no)
         if not ok:
-            return False, err_msg
+            return False, err_msg, None
         vehicle_no = formatted_no
 
         if vehicle_no in self.active_vehicles:
-            return False, f"Vehicle {vehicle_no} is already parked inside."
+            return False, f"Vehicle {vehicle_no} is already parked inside.", None
 
         heap = self.car_heap if v_type == "Car" else self.bike_heap
         if target_slot_id and target_slot_id in self.all_slots:
             slot = self.all_slots[target_slot_id]
             if slot.status != "AVAILABLE":
-                return False, f"Slot {target_slot_id} is currently {slot.status}."
+                return False, f"Slot {target_slot_id} is currently {slot.status}.", None
             if slot in heap:
                 heap.remove(slot)
                 heapq.heapify(heap)
         else:
             if not heap:
                 self.waitlist.append((vehicle_no, v_type))
-                return True, f"All {v_type} slots full. Added {vehicle_no} to waitlist."
+                return True, f"All {v_type} slots full. Added {vehicle_no} to waitlist.", None
             slot = heapq.heappop(heap)
+
+        now_ts = time.time()
+        time_str = format_ist_time(now_ts)
 
         slot.status = "OCCUPIED"
         slot.vehicle_no = vehicle_no
-        slot.entry_time = time.time()
+        slot.entry_time = now_ts
         self.active_vehicles[vehicle_no] = slot
 
-        self.log_audit("PARK", actor, f"{vehicle_no} parked at {slot.slot_id}")
+        self.log_audit("PARK", actor, f"{vehicle_no} parked at {slot.slot_id} at {time_str}")
         self.save_state()
-        return True, f"{v_type} {vehicle_no} assigned to {slot.slot_id} ({slot.level}, {slot.distance}m)."
+        return True, f"{v_type} {vehicle_no} assigned to {slot.slot_id} ({slot.level}, {slot.distance}m) at {time_str}.", {
+            "slot_id": slot.slot_id,
+            "vehicle_no": vehicle_no,
+            "entry_time": now_ts,
+            "entry_time_str": time_str
+        }
 
     def vacate(self, vehicle_no, actor="Staff", test_minutes=None):
         self.load_state()
@@ -397,8 +448,10 @@ class MultiLevelParkingSystem:
             "duration_str": f"{elapsed_min} min(s)" if (elapsed_sec >= 60 or test_minutes) else f"{elapsed_sec} sec(s) (1 min billed)",
             "rate_per_min": rate_per_min,
             "total_bill": bill,
-            "entry_time": time.strftime("%I:%M:%S %p", time.localtime(entry_t)),
-            "exit_time": time.strftime("%I:%M:%S %p", time.localtime(now))
+            "entry_time": format_ist_time(entry_t),
+            "exit_time": format_ist_time(now),
+            "entry_time_epoch": entry_t,
+            "exit_time_epoch": now
         }
 
         self.log_audit("EXIT_BILL", actor, f"{vehicle_no} exited {slot.slot_id} ({elapsed_min}m)", bill)
@@ -407,6 +460,7 @@ class MultiLevelParkingSystem:
         slot.status = "AVAILABLE"
         slot.vehicle_no = None
         slot.entry_time = None
+        slot.reserved_time = None
         slot.reserved_by = None
         slot.qr_code = None
 
@@ -422,8 +476,12 @@ class MultiLevelParkingSystem:
         slots_data = []
         for s in self.all_slots.values():
             live_min = 0
-            if s.status == "OCCUPIED" and s.entry_time:
-                live_min = max(1, round((now - s.entry_time) / 60))
+            t_val = s.entry_time or getattr(s, "reserved_time", None)
+            if s.status in ("OCCUPIED", "RESERVED") and t_val:
+                live_min = max(1, round((now - t_val) / 60))
+
+            t_str = format_ist_time(t_val) if t_val else None
+
             slots_data.append({
                 "slot_id": s.slot_id,
                 "level": s.level,
@@ -432,7 +490,9 @@ class MultiLevelParkingSystem:
                 "status": s.status,
                 "vehicle_no": s.vehicle_no,
                 "qr_code": s.qr_code,
-                "entry_time_str": time.strftime("%I:%M:%S %p", time.localtime(s.entry_time)) if s.entry_time else None,
+                "entry_time": s.entry_time,
+                "reserved_time": getattr(s, "reserved_time", None),
+                "entry_time_str": t_str,
                 "live_minutes": live_min
             })
 
@@ -441,12 +501,13 @@ class MultiLevelParkingSystem:
         occ = sum(1 for s in self.all_slots.values() if s.status == "OCCUPIED")
 
         return {
-            "server_time": time.strftime("%I:%M:%S %p"),
+            "server_time": format_ist_time(),
+            "server_time_epoch": now,
             "total": len(self.all_slots),
             "available": avail,
             "reserved": resv,
             "occupied": occ,
-            "total_revenue": self.total_revenue,
+            "total_revenue": round(self.total_revenue, 2),
             "slots": slots_data,
             "audit_logs": self.audit_logs
         }
@@ -496,7 +557,7 @@ def register():
     if u in users:
         return jsonify({'success': False, 'message': 'Username already taken! Choose another.'}), 400
 
-    users[u] = {"password": p, "role": role, "created_at": time.strftime("%Y-%m-%d %H:%M:%S")}
+    users[u] = {"password": p, "role": role, "created_at": format_ist_datetime()}
     save_users(users)
     parking.log_audit("REGISTER", u, f"Created {role} account")
     return jsonify({'success': True, 'message': f'{role} account "{u}" created! Please Sign In.'})
@@ -535,19 +596,25 @@ def reserve():
 @app.route('/api/checkin-qr', methods=['POST'])
 def checkin_qr():
     data = request.get_json() or {}
-    ok, msg = parking.check_in_reserved(data.get("qr_code", ""), data.get("staff", "Staff"))
-    return jsonify({"success": ok, "message": msg})
+    ok, msg, slot_info = parking.check_in_reserved(data.get("qr_code", ""), data.get("staff", "Staff"))
+    res = {"success": ok, "message": msg}
+    if slot_info:
+        res.update(slot_info)
+    return jsonify(res)
 
 @app.route('/api/park', methods=['POST'])
 def park():
     data = request.get_json() or {}
-    ok, msg = parking.park_walkin(
+    ok, msg, slot_info = parking.park_walkin(
         data.get("vehicle_no", ""),
         data.get("vehicle_type", "Car"),
         data.get("slot_id"),
         data.get("actor", "Staff")
     )
-    return jsonify({"success": ok, "message": msg})
+    res = {"success": ok, "message": msg}
+    if slot_info:
+        res.update(slot_info)
+    return jsonify(res)
 
 @app.route('/api/vacate', methods=['POST'])
 def vacate():
@@ -585,4 +652,4 @@ def serve_static(path):
     return jsonify({"error": "Not Found", "message": f"Resource /{path} not found"}), 404
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
+    app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=True)

@@ -319,6 +319,9 @@
                 div.className = `slot-box ${s.status}`;
                 const icon = s.type === "Car" ? "🚗" : "🏍️";
                 const color = s.status === "AVAILABLE" ? "#10b981" : (s.status === "RESERVED" ? "#f59e0b" : "#ef4444");
+                const formattedTime = (typeof formatSlotTime === "function") ? formatSlotTime(s.entry_time, s.entry_time_str) : (s.entry_time_str || '');
+                const timePrefix = s.status === "RESERVED" ? "📅 Res: " : "⏱️ In: ";
+                const timeHtml = formattedTime ? `<div class="slot-time" style="font-size:0.75rem; margin-top:2px;">${timePrefix}${formattedTime}</div>` : '';
 
                 div.innerHTML = `
                     <div style="font-size:1.6rem; margin-bottom:4px;">${icon}</div>
@@ -328,9 +331,7 @@
                     <div class="slot-desc" style="font-size:0.82rem; font-weight:700; margin-top:2px;">
                         ${s.vehicle_no ? s.vehicle_no : 'Empty'}
                     </div>
-                    <div class="slot-time" style="font-size:0.75rem; margin-top:2px;">
-                        ${s.entry_time_str ? '⏱️ In: ' + s.entry_time_str : ''}
-                    </div>
+                    ${timeHtml}
                 `;
 
                 if (s.type === "Car") carGrid.appendChild(div);

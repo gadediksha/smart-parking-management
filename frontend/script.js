@@ -43,6 +43,15 @@ function startLiveClock(elementId) {
     setInterval(update, 1000);
 }
 
+function formatSlotTime(entryEpoch, fallbackStr) {
+    if (entryEpoch && !isNaN(entryEpoch)) {
+        try {
+            return new Date(entryEpoch * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+        } catch (e) {}
+    }
+    return fallbackStr || '';
+}
+
 function checkAuth(requiredRole) {
     const user = localStorage.getItem("parking_user");
     const role = localStorage.getItem("parking_role");

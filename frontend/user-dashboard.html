@@ -173,6 +173,9 @@
                 box.className = `slot-box ${s.status}`;
                 const icon = s.type === "Car" ? "fa-car" : "fa-motorcycle";
                 const color = s.status === "AVAILABLE" ? "#10b981" : (s.status === "RESERVED" ? "#f59e0b" : "#ef4444");
+                const formattedTime = (typeof formatSlotTime === "function") ? formatSlotTime(s.entry_time, s.entry_time_str) : (s.entry_time_str || '');
+                const timePrefix = s.status === "RESERVED" ? "Res " : "In ";
+                const timeTag = formattedTime ? ` • ${timePrefix}${formattedTime}` : '';
 
                 box.innerHTML = `
                     <div style="font-size:1.6rem; color:${color}; margin-bottom:6px;"><i class="fa-solid ${icon}"></i></div>
@@ -180,7 +183,7 @@
                     <div class="slot-dist" style="font-size:0.75rem; margin:3px 0;">${s.distance}m from gate</div>
                     <div class="slot-status" style="font-size:0.8rem; font-weight:800; color:${color};">${s.status}</div>
                     <div class="slot-desc" style="font-size:0.78rem; font-weight:700; margin-top:3px;">
-                        ${s.vehicle_no ? s.vehicle_no + (s.entry_time_str ? ' • ' + s.entry_time_str : '') : 'Click to Book'}
+                        ${s.vehicle_no ? s.vehicle_no + timeTag : 'Click to Book'}
                     </div>
                 `;
 
@@ -219,7 +222,8 @@
             if (isReserve && data.ticket) {
                 document.getElementById("qrCard").style.display = "block";
                 document.getElementById("qrText").textContent = data.ticket.qr_code;
-                document.getElementById("qrDetails").textContent = `Slot: ${data.ticket.slot_id} (${data.ticket.level}) • Vehicle: ${data.ticket.vehicle_no}`;
+                const resTime = (typeof formatSlotTime === "function" && data.ticket.entry_time) ? formatSlotTime(data.ticket.entry_time, data.ticket.entry_time_str) : (data.ticket.entry_time_str || '');
+                document.getElementById("qrDetails").textContent = `Slot: ${data.ticket.slot_id} (${data.ticket.level}) • Vehicle: ${data.ticket.vehicle_no}${resTime ? ' • Time: ' + resTime : ''}`;
                 document.getElementById("qrImg").src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${data.ticket.qr_code}`;
             } else {
                 alert(data.message);
