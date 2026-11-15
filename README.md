@@ -87,23 +87,23 @@ smart-parking-management/
 
 └── README.md                 # Project documentation[cite: 14]
 
-##🚀 Getting Started (Local Setup)
-#1. Clone the Repository
+## 🚀 Getting Started (Local Setup)
+# 1. Clone the Repository
 git clone [https://github.com/gadediksha/smart-parking-management.git](https://github.com/gadediksha/smart-parking-management.git)
 cd smart-parking-management
 
-#2. Install Dependencies
+# 2. Install Dependencies
 pip install -r backend/requirements.txt
 
-#3. Run the Flask Server
+# 3. Run the Flask Server
 cd backend
 python app.py
 The server will start on http://127.0.0.1:5000.
 
-#4. Access the Application
+# 4. Access the Application
 Open your browser and visit http://127.0.0.1:5000/ (redirects to login.html).
 
-#🔌 API Endpoints
+# 🔌 API Endpoints
 Open your browser and visit http://127.0.0.1:5000/ (redirects to login.html).
 | Method | Endpoint | Description |
 
@@ -129,7 +129,7 @@ Open your browser and visit http://127.0.0.1:5000/ (redirects to login.html).
 
 | `POST` | `/api/ai-chat` | Query the embedded Parking AI Assistant[cite: 1, 2, 6] |
 
-#☁️ Deployment (Vercel)
+# ☁️ Deployment (Vercel)
 This project is deployed on Vercel at smart-parking-management-iota.vercel.app using vercel.json and api/index.py:
 
 All /api/* routes map automatically to the Flask serverless function (/api/index.py).
