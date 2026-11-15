@@ -1,138 +1,137 @@
-# 🚗 YuktiTech — Smart Parking Management System
+ 🚗 YuktiTech – Smart Parking Management System
 
-A full-stack, multi-level Smart Parking Management System designed for real-time parking bay allocation, QR-based advance reservations, fair per-minute automated billing, and live GPS navigation[cite: 2, 6, 7]. Built with **Python (Flask)**, **Data Structures & Algorithms (Min-Heap, Hash Maps, Queues)**, and a responsive **HTML/CSS/JS** multi-role dashboard[cite: 2, 3, 6, 10, 12].
+A Full-Stack Smart Parking Management System designed to simplify parking operations through intelligent slot allocation, advance reservations, automated billing, and real-time parking monitoring.
 
-🌐 **Live Demo:** [https://smart-parking-management-iota.vercel.app/](https://smart-parking-management-iota.vercel.app/)  
-📂 **Repository:** [https://github.com/gadediksha/smart-parking-management](https://github.com/gadediksha/smart-parking-management)
+The system provides separate dashboards for administrators, parking staff, and users, making parking management more organized, efficient, and user-friendly.
 
----
+🌐 Live Demo: https://smart-parking-management-iota.vercel.app/
 
-## ✨ Key Features
-
-- **⚡ Min-Heap Nearest Slot Allocation (`O(log N)`):** Automatically assigns the closest available parking bay from the entrance gate across multiple levels (`L1` Ground Floor & `L2` Upper Deck)[cite: 2, 3].
-- **🔐 Role-Based Access Control (RBAC):** Dedicated interfaces and workflows for **Administrators**, **Gate Staff / Attendants**, and **Drivers / Users**[cite: 6, 7, 10, 12].
-- **🎟️ QR Pass Reservation & Gate Check-In:** Drivers can pre-book specific slots to generate a unique QR pass (`QR-XXXXXX`), which gate staff can scan/verify for instant check-in[cite: 2, 10, 12].
-- **💰 Fair Per-Minute Automated Billing:** Transparent, real-time duration tracking and receipt generation:
-  - **Cars:** `₹0.50 / min`
-  - **Bikes:** `₹0.25 / min`
-- **🇮🇳 Indian License Plate Validation:** Strict validation and auto-formatting for standard Indian RTO plates (e.g., `UP-25-AB-1234`, `DL-01-AB-1234`) as well as **BH-Series** plates (`22-BH-1234-AA`).
-- **🤖 Embedded AI Parking Assistant:** Interactive chat assistant for Admins to query live slot availability, parked vehicle counts, and system metrics[cite: 1, 6].
-- **🗺️ Interactive Blueprint & GPS Map:** Live visual floor plan with real-time slot statuses (`AVAILABLE`, `RESERVED`, `OCCUPIED`) alongside an interactive **Leaflet.js** OpenStreetMap view[cite: 2, 6, 12].
-- **📜 Live System Audit Trail:** Real-time logging of all registrations, reservations, QR check-ins, walk-in parkings, and exit billing transactions.
-- **🌓 Dark / Light Mode:** Built-in theme switcher persisted across sessions[cite: 6, 9, 11].
+📂 GitHub Repository: https://github.com/gadediksha/smart-parking-management
 
 ---
 
-## 🧠 Data Structures & Algorithms Used
+✨ Key Features
 
-| Data Structure | Implementation | Purpose & Time Complexity |
-| :--- | :--- | :--- |
-| **Min-Heap (Priority Queue)** | `heapq` (`car_heap`, `bike_heap`) | Allocates the closest available parking slot from the entrance gate in **`O(log N)`** time and returns vacated slots back to the heap[cite: 2, 3]. |
-| **Hash Maps (Dictionaries)** | `all_slots`, `active_vehicles`, `reservations`[cite: 2] | Instant **`O(1)`** lookup for parked vehicles by license plate, slot metadata by ID, and active QR reservation passes[cite: 2, 3]. |
-| **Queue (FIFO)** | `collections.deque` (`waitlist`)[cite: 2, 3] | Manages overflow vehicles in First-In, First-Out order in **`O(1)`** time when all parking slots are full[cite: 2, 3]. |
-| **Hash Set & List** | `VALID_INDIAN_STATES` (`set`), `audit_logs` (`list`)[cite: 2] | **`O(1)`** RTO state code validation and bounded recent-50 activity logging[cite: 2]. |
+- Smart Parking Allocation: Automatically assigns the nearest available parking slot using a Min-Heap algorithm.
+- Multi-Level Parking: Supports multiple parking levels, including Ground Floor and Upper Deck.
+- Role-Based Access: Separate dashboards for Admin, Parking Staff, and Users.
+- QR-Based Reservations: Allows users to reserve parking slots and receive unique QR passes.
+- Automated Billing: Calculates parking charges based on vehicle parking duration.
+- Vehicle Number Validation: Supports standard Indian vehicle registration formats and BH-Series plates.
+- AI Parking Assistant: Provides an interactive assistant for checking parking availability and system information.
+- Interactive Parking Map: Displays parking slot availability and location information.
+- Activity Monitoring: Maintains logs of registrations, reservations, check-ins, and billing transactions.
+- Dark & Light Mode: Provides a customizable user interface.
 
----
+🛠️ Technologies Used
 
-## 🛠️ Tech Stack
+Category| Technologies
+Frontend| HTML5, CSS3, JavaScript
+Backend| Python, Flask
+API| REST API, Flask-CORS
+Data Structures| Min-Heap, Hash Maps, Queues, Sets
+Mapping| Leaflet.js, OpenStreetMap
+QR Integration| QR Server API
+Deployment| Vercel
 
-- **Backend:** Python 3, Flask, Flask-CORS, Gunicorn[cite: 2, 4]
-- **Core Algorithms:** `heapq`, `collections.deque`, Hash Maps, Sets[cite: 2, 3]
-- **Frontend:** HTML5, CSS3 (Custom Properties / Responsive Grid), Vanilla JavaScript[cite: 6, 9, 11]
-- **Mapping & QR:** Leaflet.js (OpenStreetMap), QRServer API[cite: 6, 12]
-- **Deployment:** Vercel Serverless (`vercel.json` + `/api/index.py`) & Render-ready (`gunicorn`)[cite: 2, 4, 13, 16]
+🧠 Data Structures & Algorithms
 
----
+This project uses fundamental Data Structures and Algorithms to improve parking operations.
 
-## 📂 Project Structure
+- Min-Heap: Finds and allocates the nearest available parking slot efficiently.
+- Hash Maps: Stores and retrieves parking slots, vehicle details, and reservation information.
+- Queue: Manages waiting vehicles using the FIFO (First In, First Out) principle.
+- Hash Sets: Supports efficient validation of Indian vehicle registration state codes.
+- Lists: Maintains system activity and audit logs.
 
-```text
+📂 Project Structure
+
 smart-parking-management/
-
+│
 ├── api/
-
-│└── index.py              # Vercel serverless entry point[cite: 13]
-
+│   └── index.py
+│
 ├── backend/
-
-│   ├── app.py                # Main Flask server, REST APIs & Min-Heap parking engine[cite: 2]
-
-│   ├── ai_assistant.py       # Rule-based NLP Parking AI Assistant[cite: 1]
-
-│   ├── dsa_logic.py          # Standalone DSA reference implementation[cite: 3]
-
-│   ├── users.json            # User credentials & role storage[cite: 2, 5]
-
-│   └── requirements.txt      # Backend dependencies[cite: 4]
-
+│   ├── app.py
+│   ├── ai_assistant.py
+│   ├── dsa_logic.py
+│   ├── users.json
+│   └── requirements.txt
+│
 ├── frontend/
+│   ├── login.html
+│   ├── register.html
+│   ├── index.html
+│   ├── staff-dashboard.html
+│   ├── user-dashboard.html
+│   ├── script.js
+│   └── style.css
+│
+├── requirements.txt
+├── vercel.json
+└── README.md
 
-│   ├── login.html            # Split-screen authentication & registration page[cite: 7]
+🚀 Installation & Setup
 
-│   ├── register.html         # Dedicated account registration page[cite: 8]
+Follow these steps to run the project locally.
 
-│   ├── index.html            # Admin Control Center (KPIs, Blueprint, AI, Audit Trail)[cite: 6]
+1. Clone the Repository
 
-│   ├── staff-dashboard.html  # Gate Staff Panel (Walk-in, QR Check-in, Exit & Billing)[cite: 10]
+git clone https://github.com/gadediksha/smart-parking-management.git
 
-│   ├── user-dashboard.html   # Driver Portal (Slot Booking, QR Ticket, GPS Map)[cite: 12]
+2. Navigate to the Project Folder
 
-│   ├── script.js             # Shared auth, plate validator, clock & theme utilities[cite: 9]
-
-│   └── style.css             # Responsive dark/light UI styling[cite: 11]
-
-├── requirements.txt          # Root dependencies for deployment[cite: 15]
-
-├── vercel.json               # Vercel URL rewrites & routing configuration
-
-└── README.md                 # Project documentation[cite: 14]
----
-## 🚀 Getting Started (Local Setup)
-# 1. Clone the Repository
----
-git clone [https://github.com/gadediksha/smart-parking-management.git](https://github.com/gadediksha/smart-parking-management.git)
 cd smart-parking-management
 
-# 2. Install Dependencies
+3. Install Dependencies
+
 pip install -r backend/requirements.txt
 
-# 3. Run the Flask Server
+4. Run the Application
+
 cd backend
 python app.py
-The server will start on http://127.0.0.1:5000.
 
-# 4. Access the Application
-Open your browser and visit http://127.0.0.1:5000/ (redirects to login.html).
+5. Open in Browser
 
-# 🔌 API Endpoints
-Open your browser and visit http://127.0.0.1:5000/ (redirects to login.html).
-| Method | Endpoint | Description |
+Visit:
 
-| :--- | :--- | :--- |
+http://127.0.0.1:5000/
 
-| `GET` | `/api/test` | API health check and available endpoints[cite: 2] |
+🔌 API Endpoints
 
-| `POST` | `/api/register` | Register a new `User`, `Staff`, or `Admin` account[cite: 2, 7] |
+Method| Endpoint| Description
+GET| "/api/test"| API health check
+POST| "/api/register"| Register a new account
+POST| "/api/login"| User authentication
+GET| "/api/users"| Fetch registered users
+GET| "/api/status"| Check parking status
+POST| "/api/reserve"| Reserve a parking slot
+POST| "/api/checkin-qr"| Verify QR-based check-in
+POST| "/api/park"| Allocate a parking slot
+POST| "/api/vacate"| Exit and calculate parking charges
+POST| "/api/ai-chat"| Interact with the parking assistant
 
-| `POST` | `/api/login` | Authenticate user and return assigned role[cite: 2, 7] |
+☁️ Deployment
 
-| `GET` | `/api/users` | Fetch list of registered accounts (Admin)[cite: 2, 6] |
+The application is deployed using Vercel.
 
-| `GET` | `/api/status` | Get live slot occupancy, revenue, and audit logs[cite: 2, 6] |
+The deployment configuration uses "vercel.json" and the serverless API entry point in the "api/" directory.
 
-| `POST` | `/api/reserve` | Reserve a slot and generate a QR pass[cite: 2, 12] |
+Live Project: https://smart-parking-management-iota.vercel.app/
 
-| `POST` | `/api/checkin-qr` | Check in a reserved vehicle using its QR code[cite: 2, 10] |
+🎯 Project Objective
 
-| `POST` | `/api/park` | Park a walk-in vehicle (auto Min-Heap or specific slot)[cite: 2, 10] |
+The main objective of this project is to develop a smart and efficient parking management solution that reduces manual effort, improves parking space utilization, simplifies reservations, and makes parking operations more organized through technology and data structures.
 
-| `POST` | `/api/vacate` | Vacate a slot, calculate per-minute bill, and generate receipt[cite: 2, 10] |
+👩‍💻 Developer
 
-| `POST` | `/api/ai-chat` | Query the embedded Parking AI Assistant[cite: 1, 2, 6] |
+Diksha Gade
 
-# ☁️ Deployment (Vercel)
-This project is deployed on Vercel at smart-parking-management-iota.vercel.app using vercel.json and api/index.py:
+BCA Student | Aspiring Software Developer
 
-All /api/* routes map automatically to the Flask serverless function (/api/index.py).
+GitHub: https://github.com/gadediksha
 
-Frontend views are served cleanly via URL rewrites from /frontend.
+---
+
+⭐ If you find this project interesting, consider giving this repository a star!
