@@ -47,28 +47,51 @@ This project uses fundamental Data Structures and Algorithms to improve parking 
 📂 Project Structure
 
 smart-parking-management/
+
 │
+
 ├── api/
+
 │   └── index.py
+
 │
+
 ├── backend/
+
 │   ├── app.py
+
 │   ├── ai_assistant.py
+
 │   ├── dsa_logic.py
+
 │   ├── users.json
+
 │   └── requirements.txt
+
 │
+
 ├── frontend/
+
 │   ├── login.html
+
 │   ├── register.html
+
 │   ├── index.html
+
 │   ├── staff-dashboard.html
+
 │   ├── user-dashboard.html
+
 │   ├── script.js
+
 │   └── style.css
+
 │
+
 ├── requirements.txt
+
 ├── vercel.json
+
 └── README.md
 
 🚀 Installation & Setup
