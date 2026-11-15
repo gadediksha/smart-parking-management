@@ -38,5 +38,20 @@
     "password": "Sneha@4321",
     "role": "Staff",
     "created_at": "2026-11-14 19:50:49"
+  },
+  "Diksha": {
+    "password": "12345",
+    "role": "User",
+    "created_at": "2026-11-15 14:28:14"
+  },
+  "Disha": {
+    "password": "1236",
+    "role": "Admin",
+    "created_at": "2026-11-15 14:29:39"
+  },
+  "Diya": {
+    "password": "2468",
+    "role": "Staff",
+    "created_at": "2026-11-15 14:30:56"
   }
 }
