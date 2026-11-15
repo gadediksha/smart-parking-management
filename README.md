@@ -86,9 +86,10 @@ smart-parking-management/
 ├── vercel.json               # Vercel URL rewrites & routing configuration
 
 └── README.md                 # Project documentation[cite: 14]
-
+---
 ## 🚀 Getting Started (Local Setup)
 # 1. Clone the Repository
+---
 git clone [https://github.com/gadediksha/smart-parking-management.git](https://github.com/gadediksha/smart-parking-management.git)
 cd smart-parking-management
 
