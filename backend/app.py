@@ -66,10 +66,71 @@ if os.environ.get("VERCEL"):
         except Exception:
             pass
     USERS_FILE = TMP_USERS
+    STATE_FILE = "/tmp/parking_state.json"
 else:
     USERS_FILE = os.path.join(os.path.dirname(__file__), "users.json")
+    STATE_FILE = os.path.join(os.path.dirname(__file__), "parking_state.json")
+
+import urllib.request
+import urllib.error
+
+def get_cloud_kv_config():
+    url = os.environ.get("KV_REST_API_URL") or os.environ.get("UPSTASH_REDIS_REST_URL")
+    token = os.environ.get("KV_REST_API_TOKEN") or os.environ.get("UPSTASH_REDIS_REST_TOKEN")
+    if url and token:
+        return url.rstrip("/"), token
+    return None, None
+
+def cloud_save_state(key, data_obj):
+    url, token = get_cloud_kv_config()
+    if not url or not token:
+        return False
+    try:
+        val_str = json.dumps(data_obj)
+        payload = json.dumps(["SET", key, val_str]).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=payload,
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            return resp.status == 200
+    except Exception as e:
+        print(f"Cloud KV save error for {key}: {e}")
+        return False
+
+def cloud_load_state(key):
+    url, token = get_cloud_kv_config()
+    if not url or not token:
+        return None
+    try:
+        payload = json.dumps(["GET", key]).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=payload,
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            res_json = json.loads(resp.read().decode("utf-8"))
+            val = res_json.get("result")
+            if val:
+                if isinstance(val, str):
+                    try:
+                        return json.loads(val)
+                    except Exception:
+                        return val
+                return val
+    except Exception as e:
+        print(f"Cloud KV load error for {key}: {e}")
+    return None
 
 def load_users():
+    cloud_u = cloud_load_state("users_store")
+    if cloud_u and isinstance(cloud_u, dict):
+        return cloud_u
+
     if not os.path.exists(USERS_FILE):
         save_users({})
         return {}
@@ -80,8 +141,12 @@ def load_users():
         return {}
 
 def save_users(users_dict):
-    with open(USERS_FILE, "w", encoding="utf-8") as f:
-        json.dump(users_dict, f, indent=2)
+    try:
+        with open(USERS_FILE, "w", encoding="utf-8") as f:
+            json.dump(users_dict, f, indent=2)
+    except Exception as e:
+        print(f"Error saving {USERS_FILE}: {e}")
+    cloud_save_state("users_store", users_dict)
 
 load_users()
 
@@ -123,6 +188,68 @@ class MultiLevelParkingSystem:
             self._add_slot(f"L2-C{i}", "L2", 50 + (i * 10), "Car")
             self._add_slot(f"L2-B{i}", "L2", 40 + (i * 8), "Bike")
 
+        self.load_state()
+
+    def save_state(self):
+        try:
+            state = {
+                "total_revenue": self.total_revenue,
+                "audit_logs": self.audit_logs,
+                "reservations": self.reservations,
+                "slots": {
+                    s_id: {
+                        "status": s.status,
+                        "vehicle_no": s.vehicle_no,
+                        "entry_time": s.entry_time,
+                        "reserved_by": s.reserved_by,
+                        "qr_code": s.qr_code
+                    } for s_id, s in self.all_slots.items()
+                }
+            }
+            with open(STATE_FILE, "w", encoding="utf-8") as f:
+                json.dump(state, f, indent=2)
+            cloud_save_state("parking_state", state)
+        except Exception as e:
+            print(f"Error saving state: {e}")
+
+    def load_state(self):
+        try:
+            cloud_data = cloud_load_state("parking_state")
+            state = None
+            if cloud_data and isinstance(cloud_data, dict):
+                state = cloud_data
+            elif os.path.exists(STATE_FILE):
+                with open(STATE_FILE, "r", encoding="utf-8") as f:
+                    state = json.load(f)
+
+            if not state:
+                return
+
+            self.total_revenue = state.get("total_revenue", 0.0)
+            self.audit_logs = state.get("audit_logs", [])
+            self.reservations = state.get("reservations", {})
+
+            slots_saved = state.get("slots", {})
+            self.active_vehicles = {}
+            self.car_heap = []
+            self.bike_heap = []
+
+            for s_id, s in self.all_slots.items():
+                if s_id in slots_saved:
+                    saved_s = slots_saved[s_id]
+                    s.status = saved_s.get("status", "AVAILABLE")
+                    s.vehicle_no = saved_s.get("vehicle_no")
+                    s.entry_time = saved_s.get("entry_time")
+                    s.reserved_by = saved_s.get("reserved_by")
+                    s.qr_code = saved_s.get("qr_code")
+
+                if s.status == "AVAILABLE":
+                    heapq.heappush(self.car_heap if s.slot_type == "Car" else self.bike_heap, s)
+                elif s.status == "OCCUPIED" and s.vehicle_no:
+                    self.active_vehicles[s.vehicle_no] = s
+        except Exception as e:
+            print(f"Error loading state: {e}")
+
     def _add_slot(self, slot_id, level, dist, s_type):
         s = ParkingSlot(slot_id, level, dist, s_type)
         self.all_slots[slot_id] = s
@@ -140,6 +267,7 @@ class MultiLevelParkingSystem:
             self.audit_logs.pop()
 
     def reserve_slot(self, username, vehicle_no, v_type, target_slot_id=None):
+        self.load_state()
         ok, formatted_no, err_msg = validate_and_format_plate(vehicle_no)
         if not ok:
             return False, err_msg, None
@@ -172,6 +300,7 @@ class MultiLevelParkingSystem:
         self.reservations[qr_token] = slot.slot_id
 
         self.log_audit("RESERVE", username, f"{vehicle_no} reserved {slot.slot_id} ({qr_token})")
+        self.save_state()
         return True, f"Slot {slot.slot_id} reserved!", {
             "qr_code": qr_token,
             "slot_id": slot.slot_id,
@@ -181,6 +310,7 @@ class MultiLevelParkingSystem:
         }
 
     def check_in_reserved(self, qr_code, staff_name="Staff"):
+        self.load_state()
         qr_code = qr_code.strip().upper()
         if qr_code not in self.reservations:
             return False, "Invalid or already used QR Pass."
@@ -192,9 +322,11 @@ class MultiLevelParkingSystem:
         self.active_vehicles[slot.vehicle_no] = slot
 
         self.log_audit("QR_CHECKIN", staff_name, f"{slot.vehicle_no} checked into {slot.slot_id}")
+        self.save_state()
         return True, f"Checked-in {slot.vehicle_no} at {slot.slot_id} ({slot.level})!"
 
     def park_walkin(self, vehicle_no, v_type, target_slot_id=None, actor="Staff"):
+        self.load_state()
         ok, formatted_no, err_msg = validate_and_format_plate(vehicle_no)
         if not ok:
             return False, err_msg
@@ -223,9 +355,11 @@ class MultiLevelParkingSystem:
         self.active_vehicles[vehicle_no] = slot
 
         self.log_audit("PARK", actor, f"{vehicle_no} parked at {slot.slot_id}")
+        self.save_state()
         return True, f"{v_type} {vehicle_no} assigned to {slot.slot_id} ({slot.level}, {slot.distance}m)."
 
     def vacate(self, vehicle_no, actor="Staff", test_minutes=None):
+        self.load_state()
         if not vehicle_no:
             return None
         ok, formatted_no, _ = validate_and_format_plate(vehicle_no)
@@ -279,9 +413,11 @@ class MultiLevelParkingSystem:
         heap = self.car_heap if slot.slot_type == "Car" else self.bike_heap
         heapq.heappush(heap, slot)
 
+        self.save_state()
         return receipt
 
     def get_status(self):
+        self.load_state()
         now = time.time()
         slots_data = []
         for s in self.all_slots.values():
@@ -432,6 +568,14 @@ def ai_chat():
     if not msg:
         return jsonify({"reply": "Please ask a question."}), 400
     return jsonify(ai_bot.process_query(msg))
+
+@app.route('/api/export-data', methods=['GET'])
+def export_data():
+    return jsonify({
+        "status": "success",
+        "users": load_users(),
+        "parking": parking.get_status()
+    })
 
 @app.route('/<path:path>')
 def serve_static(path):

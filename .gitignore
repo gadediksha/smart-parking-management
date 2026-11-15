@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+*$py.class
+backend/parking_state.json
+backend/__pycache__/
+api/__pycache__/
+.env
+.venv
+env/
+venv/
